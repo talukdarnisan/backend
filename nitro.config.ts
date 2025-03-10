@@ -13,6 +13,7 @@ export default defineNitroConfig({
         captchaClientKey: process.env.CAPTCHA_CLIENT_KEY || ''
       }
     },
-    cyrptoSecret: process.env.CRYPTO_SECRET
+    cyrptoSecret: process.env.CRYPTO_SECRET,
+    tmdbApiKey: process.env.TMDB_API_KEY,
   }
 });

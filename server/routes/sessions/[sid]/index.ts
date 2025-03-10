@@ -89,6 +89,16 @@ export default defineEventHandler(async (event) => {
   }
   
   if (event.method === 'DELETE') {
+    const sid = event.context.params?.sid;
+    const sessionExists = await prisma.sessions.findUnique({
+      where: { id: sid }
+    });
+    
+    if (!sessionExists) {
+      return { success: true };
+    }
+    const session = await auth.getSessionAndBump(sid);
+    
     await prisma.sessions.delete({
       where: { id: sessionId }
     });

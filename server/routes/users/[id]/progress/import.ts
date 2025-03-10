@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 const progressMetaSchema = z.object({
   title: z.string(),
   poster: z.string().optional(),
-  type: z.enum(['movie', 'tv']),
+  type: z.enum(['movie', 'tv', 'show']),
   year: z.number().optional()
 });
 

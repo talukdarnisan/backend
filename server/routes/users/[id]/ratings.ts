@@ -4,7 +4,7 @@ import { z } from 'zod';
 const userRatingsSchema = z.object({
     tmdb_id: z.number(),
     type: z.enum(['movie', 'tv']),
-    rating: z.number()
+    rating: z.number().min(0).max(10)
 });
 
 export default defineEventHandler(async (event) => {

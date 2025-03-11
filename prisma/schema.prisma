@@ -74,5 +74,6 @@ model users {
   created_at     DateTime  @db.Timestamptz(0)
   last_logged_in DateTime? @db.Timestamptz(0)
   permissions    String[]
+  ratings        Json      @default("[]")
   profile        Json
 }

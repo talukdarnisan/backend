@@ -15,4 +15,4 @@ commands = [
 ]
 
 [start]
-cmd = "node .output/server/index.mjs"
+cmd = "source .env && node .output/server/index.mjs"

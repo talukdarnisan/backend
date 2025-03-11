@@ -55,7 +55,7 @@ export function useAuth() {
 
   const makeSessionToken = (session: { id: string }) => {
     const runtimeConfig = useRuntimeConfig();
-    return sign({ sid: session.id }, runtimeConfig.cyrptoSecret, {
+    return sign({ sid: session.id }, runtimeConfig.cryptoSecret, {
       algorithm: 'HS256'
     });
   };
@@ -63,7 +63,7 @@ export function useAuth() {
   const verifySessionToken = (token: string) => {
     try {
       const runtimeConfig = useRuntimeConfig();
-      const payload = verify(token, runtimeConfig.cyrptoSecret, {
+      const payload = verify(token, runtimeConfig.cryptoSecret, {
         algorithms: ['HS256']
       });
       

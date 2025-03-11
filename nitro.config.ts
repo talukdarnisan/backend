@@ -1,3 +1,5 @@
+import { config } from 'dotenv';
+config();
 import { version } from "./server/utils/config";
 //https://nitro.unjs.io/config
 export default defineNitroConfig({
@@ -6,14 +8,14 @@ export default defineNitroConfig({
   runtimeConfig: {
     public: {
       meta: {
-        name: process.env.META_NAME || 'empty',
-        description: process.env.META_DESCRIPTION || 'empty',
-        version: version || 'empty',
+        name: process.env.META_NAME || '',
+        description: process.env.META_DESCRIPTION || '',
+        version: version || '',
         captcha: process.env.CAPTCHA || false,
         captchaClientKey: process.env.CAPTCHA_CLIENT_KEY || ''
       }
     },
-    cyrptoSecret: process.env.CRYPTO_SECRET,
+    cryptoSecret: process.env.CRYPTO_SECRET,
     tmdbApiKey: process.env.TMDB_API_KEY,
   }
 });

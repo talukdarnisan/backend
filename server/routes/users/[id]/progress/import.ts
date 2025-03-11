@@ -33,33 +33,8 @@ function defaultAndCoerceDateTime(dateTime: string | undefined) {
 export default defineEventHandler(async (event) => {
   const userId = event.context.params?.id;
   
-  const authHeader = getRequestHeader(event, 'authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw createError({
-      statusCode: 401,
-      message: 'Unauthorized'
-    });
-  }
-
-  const token = authHeader.split(' ')[1];
-  const auth = useAuth();
+  const session = await useAuth().getCurrentSession();
   
-  const payload = auth.verifySessionToken(token);
-  if (!payload) {
-    throw createError({
-      statusCode: 401,
-      message: 'Invalid token'
-    });
-  }
-
-  const session = await auth.getSessionAndBump(payload.sid);
-  if (!session) {
-    throw createError({
-      statusCode: 401,
-      message: 'Session not found or expired'
-    });
-  }
-
   if (session.user !== userId) {
     throw createError({
       statusCode: 403,

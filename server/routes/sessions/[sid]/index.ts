@@ -8,32 +8,7 @@ const updateSessionSchema = z.object({
 export default defineEventHandler(async (event) => {
   const sessionId = getRouterParam(event, 'sid');
   
-  const authHeader = getRequestHeader(event, 'authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw createError({
-      statusCode: 401,
-      message: 'Unauthorized'
-    });
-  }
-
-  const token = authHeader.split(' ')[1];
-  const auth = useAuth();
-  
-  const payload = auth.verifySessionToken(token);
-  if (!payload) {
-    throw createError({
-      statusCode: 401,
-      message: 'Invalid token'
-    });
-  }
-
-  const currentSession = await auth.getSessionAndBump(payload.sid);
-  if (!currentSession) {
-    throw createError({
-      statusCode: 401,
-      message: 'Session not found or expired'
-    });
-  }
+  const currentSession = await useAuth().getCurrentSession();
 
   const targetedSession = await prisma.sessions.findUnique({
     where: { id: sessionId }
@@ -97,7 +72,7 @@ export default defineEventHandler(async (event) => {
     if (!sessionExists) {
       return { success: true };
     }
-    const session = await auth.getSessionAndBump(sid);
+    const session = await useAuth().getSessionAndBump(sid);
     
     await prisma.sessions.delete({
       where: { id: sessionId }

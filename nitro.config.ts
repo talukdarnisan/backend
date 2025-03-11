@@ -5,6 +5,9 @@ import { version } from "./server/utils/config";
 export default defineNitroConfig({
   srcDir: "server",
   compatibilityDate: "2025-03-05",
+  experimental: {
+    asyncContext: true,
+  },
   runtimeConfig: {
     public: {
       meta: {

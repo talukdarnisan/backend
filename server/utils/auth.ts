@@ -73,12 +73,43 @@ export function useAuth() {
       return null;
     }
   };
+  
+  const getCurrentSession = async () => {
+    const event = useEvent();
+    const authHeader = getRequestHeader(event, 'authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw createError({
+        statusCode: 401,
+        message: 'Unauthorized'
+      });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const payload = verifySessionToken(token);
+    if (!payload) {
+      throw createError({
+        statusCode: 401,
+        message: 'Invalid token'
+      });
+    }
+
+    const session = await getSessionAndBump(payload.sid);
+    if (!session) {
+      throw createError({
+        statusCode: 401,
+        message: 'Session not found or expired'
+      });
+    }
+    
+    return session;
+  };
 
   return {
     getSession,
     getSessionAndBump,
     makeSession,
     makeSessionToken,
-    verifySessionToken
+    verifySessionToken,
+    getCurrentSession
   };
 }

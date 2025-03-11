@@ -6,9 +6,9 @@ export default defineNitroConfig({
   runtimeConfig: {
     public: {
       meta: {
-        name: process.env.META_NAME || '',
-        description: process.env.META_DESCRIPTION || '',
-        version: version || '',
+        name: process.env.META_NAME || 'empty',
+        description: process.env.META_DESCRIPTION || 'empty',
+        version: version || 'empty',
         captcha: process.env.CAPTCHA || false,
         captchaClientKey: process.env.CAPTCHA_CLIENT_KEY || ''
       }

@@ -1,6 +1,6 @@
 import { register } from 'prom-client';
-import { setupMetrics } from '../utils/metrics';
-import { scopedLogger } from '../utils/logger';
+import { setupMetrics } from '../../utils/metrics';
+import { scopedLogger } from '../../utils/logger';
 
 const log = scopedLogger('metrics-endpoint');
 

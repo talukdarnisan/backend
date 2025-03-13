@@ -1,5 +1,8 @@
 # BackendV2
 
+[![Donate](https://img.shields.io/badge/Donate-GitHub%20Sponsors-PURPLE)](https://github.com/sponsors/FifthWit)
+
+
 BackendV2 is a from scratch rewrite for the old Fastify and MikroOrm version with backwards compatibility!
 
 ## Tech Stack

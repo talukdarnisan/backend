@@ -4,21 +4,21 @@ import { randomUUID } from 'crypto';
 
 const progressMetaSchema = z.object({
   title: z.string(),
-  poster: z.string().optional(),
-  type: z.enum(['movie', 'tv', 'show']),
-  year: z.number().optional()
+  type: z.enum(['movie', 'show']),
+  year: z.number(),
+  poster: z.string().optional()
 });
 
 const progressItemSchema = z.object({
   meta: progressMetaSchema,
   tmdbId: z.string(),
-  duration: z.number().transform((n) => Math.round(n)),
-  watched: z.number().transform((n) => Math.round(n)),
+  duration: z.number(),
+  watched: z.number(),
   seasonId: z.string().optional(),
   episodeId: z.string().optional(),
   seasonNumber: z.number().optional(),
   episodeNumber: z.number().optional(),
-  updatedAt: z.string().datetime({ offset: true }).optional(),
+  updatedAt: z.string().datetime({ offset: true }).optional()
 });
 
 // 13th July 2021 - movie-web epoch
@@ -90,50 +90,61 @@ export default defineEventHandler(async (event) => {
     }
   }
   
-  for (const newItem of newItems) {
+  // Create new items
+  for (const item of newItems) {
     itemsToUpsert.push({
       id: randomUUID(),
-      tmdb_id: newItem.tmdbId,
+      tmdb_id: item.tmdbId,
       user_id: userId,
-      season_id: newItem.seasonId || null,
-      episode_id: newItem.episodeId || null,
-      season_number: newItem.seasonNumber || null,
-      episode_number: newItem.episodeNumber || null,
-      duration: BigInt(newItem.duration),
-      watched: BigInt(newItem.watched),
-      meta: newItem.meta,
-      updated_at: defaultAndCoerceDateTime(newItem.updatedAt)
+      season_id: item.seasonId || null,
+      episode_id: item.episodeId || null,
+      season_number: item.seasonNumber || null,
+      episode_number: item.episodeNumber || null,
+      duration: BigInt(item.duration),
+      watched: BigInt(item.watched),
+      meta: item.meta,
+      updated_at: defaultAndCoerceDateTime(item.updatedAt)
     });
   }
   
-  const result = await prisma.$transaction(
-    itemsToUpsert.map(item => 
-      prisma.progress_items.upsert({
-        where: {
-          id: item.id
-        },
-        update: {
-          watched: item.watched,
-          duration: item.duration,
-          meta: item.meta,
-          updated_at: item.updated_at
-        },
-        create: item
-      })
-    )
-  );
+  // Upsert all items
+  const results = [];
+  for (const item of itemsToUpsert) {
+    const result = await prisma.progress_items.upsert({
+      where: {
+        tmdb_id_user_id_season_id_episode_id: {
+          tmdb_id: item.tmdb_id,
+          user_id: item.user_id,
+          season_id: item.season_id,
+          episode_id: item.episode_id
+        }
+      },
+      create: item,
+      update: {
+        duration: item.duration,
+        watched: item.watched,
+        meta: item.meta,
+        updated_at: item.updated_at
+      }
+    });
+    
+    results.push({
+      id: result.id,
+      tmdbId: result.tmdb_id,
+      episode: {
+        id: result.episode_id || null,
+        number: result.episode_number || null
+      },
+      season: {
+        id: result.season_id || null,
+        number: result.season_number || null
+      },
+      meta: result.meta,
+      duration: result.duration.toString(),
+      watched: result.watched.toString(),
+      updatedAt: result.updated_at.toISOString()
+    });
+  }
   
-  return result.map(item => ({
-    id: item.id,
-    tmdbId: item.tmdb_id,
-    userId: item.user_id,
-    seasonId: item.season_id,
-    episodeId: item.episode_id,
-    seasonNumber: item.season_number,
-    episodeNumber: item.episode_number,
-    meta: item.meta,
-    duration: Number(item.duration),
-    watched: Number(item.watched),
-    updatedAt: item.updated_at
-  }));
+  return results;
 });

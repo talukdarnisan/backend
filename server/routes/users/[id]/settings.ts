@@ -2,12 +2,12 @@ import { useAuth } from '~/utils/auth';
 import { z } from 'zod';
 
 const userSettingsSchema = z.object({
-  application_theme: z.string().optional(),
-  application_language: z.string().optional(),
-  default_subtitle_language: z.string().optional(),
-  proxy_urls: z.array(z.string()).optional(),
-  trakt_key: z.string().optional(),
-  febbox_key: z.string().optional()
+  applicationTheme: z.string().nullable().optional(),
+  applicationLanguage: z.string(),
+  defaultSubtitleLanguage: z.string().nullable().optional(),
+  proxyUrls: z.array(z.string()).nullable().optional(),
+  traktKey: z.string().nullable().optional(),
+  febboxKey: z.string().nullable().optional()
 });
 
 export default defineEventHandler(async (event) => {
@@ -22,46 +22,60 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  if (event.method === 'GET') {
+    const settings = await prisma.user_settings.findUnique({
+      where: { id: userId }
+    });
+
+    return {
+      id: userId,
+      applicationTheme: settings?.application_theme || null,
+      applicationLanguage: settings?.application_language || 'en',
+      defaultSubtitleLanguage: settings?.default_subtitle_language || null,
+      proxyUrls: settings?.proxy_urls || null,
+      traktKey: settings?.trakt_key || null,
+      febboxKey: settings?.febbox_key || null
+    };
+  }
+
   if (event.method === 'PUT') {
     try {
       const body = await readBody(event);
-      const validatedSettings = userSettingsSchema.parse(body);
+      const validatedBody = userSettingsSchema.parse(body);
       
-      const existingSettings = await prisma.user_settings.findUnique({
-        where: { id: userId }
+      const data = {
+        application_theme: validatedBody.applicationTheme,
+        application_language: validatedBody.applicationLanguage,
+        default_subtitle_language: validatedBody.defaultSubtitleLanguage ?? null,
+        proxy_urls: validatedBody.proxyUrls ?? null,
+        trakt_key: validatedBody.traktKey ?? null,
+        febbox_key: validatedBody.febboxKey ?? null
+      };
+
+      const settings = await prisma.user_settings.upsert({
+        where: { id: userId },
+        update: data,
+        create: {
+          id: userId,
+          ...data
+        }
       });
       
-      let settings;
-      
-      if (existingSettings) {
-        settings = await prisma.user_settings.update({
-          where: { id: userId },
-          data: validatedSettings
-        });
-      } else {
-        settings = await prisma.user_settings.create({
-          data: {
-            id: userId,
-            ...validatedSettings
-          }
-        });
-      }
-      
       return {
-        settings: {
-          applicationTheme: settings.application_theme,
-          applicationLanguage: settings.application_language,
-          defaultSubtitleLanguage: settings.default_subtitle_language,
-          proxyUrls: settings.proxy_urls,
-          traktKey: settings.trakt_key,
-          febboxKey: settings.febbox_key
-        }
+        id: userId,
+        applicationTheme: settings.application_theme,
+        applicationLanguage: settings.application_language,
+        defaultSubtitleLanguage: settings.default_subtitle_language,
+        proxyUrls: settings.proxy_urls,
+        traktKey: settings.trakt_key,
+        febboxKey: settings.febbox_key
       };
     } catch (error) {
       if (error instanceof z.ZodError) {
         throw createError({
           statusCode: 400,
-          message: 'Invalid settings data'
+          message: 'Invalid settings data',
+          cause: error.errors
         });
       }
       
@@ -70,34 +84,6 @@ export default defineEventHandler(async (event) => {
         message: 'Failed to update settings'
       });
     }
-  } else if (event.method === 'GET') {
-    const settings = await prisma.user_settings.findUnique({
-      where: { id: userId }
-    });
-    
-    if (!settings) {
-      return {
-        settings: {
-          applicationTheme: null,
-          applicationLanguage: null,
-          defaultSubtitleLanguage: null,
-          proxyUrls: [],
-          traktKey: null,
-          febboxKey: null
-        }
-      };
-    }
-    
-    return {
-      settings: {
-        applicationTheme: settings.application_theme,
-        applicationLanguage: settings.application_language,
-        defaultSubtitleLanguage: settings.default_subtitle_language,
-        proxyUrls: settings.proxy_urls,
-        traktKey: settings.trakt_key,
-        febboxKey: settings.febbox_key
-      }
-    };
   }
   
   throw createError({

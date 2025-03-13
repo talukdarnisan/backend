@@ -32,9 +32,18 @@ const metricsProviderSchema = z.object({
 const metricsProviderInputSchema = z.object({
   items: z.array(metricsProviderSchema).max(10).min(1),
   tool: z.string().optional(),
+  batchId: z.string().optional(),
 });
 
 export default defineEventHandler(async (event) => {
+  // Handle both POST and PUT methods
+  if (event.method !== 'POST' && event.method !== 'PUT') {
+    throw createError({
+      statusCode: 405,
+      message: 'Method not allowed'
+    });
+  }
+
   try {
     await ensureMetricsInitialized();
     

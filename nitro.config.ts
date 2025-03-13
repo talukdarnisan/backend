@@ -14,7 +14,7 @@ export default defineNitroConfig({
         name: process.env.META_NAME || '',
         description: process.env.META_DESCRIPTION || '',
         version: version || '',
-        captcha: process.env.CAPTCHA || false,
+        captcha: (process.env.CAPTCHA === 'true').toString(),
         captchaClientKey: process.env.CAPTCHA_CLIENT_KEY || ''
       }
     },

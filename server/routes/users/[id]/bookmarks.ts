@@ -5,7 +5,7 @@ const bookmarkMetaSchema = z.object({
   title: z.string(),
   year: z.number().optional(),
   poster: z.string().optional(),
-  type: z.enum(['movie', 'show']),
+  type: z.enum(['movie', 'tv']),
 });
 
 const bookmarkDataSchema = z.object({
@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
 
     return bookmarks.map(bookmark => ({
       tmdbId: bookmark.tmdb_id,
+      userId: bookmark.user_id,
       meta: bookmark.meta,
       updatedAt: bookmark.updated_at
     }));
@@ -67,6 +68,7 @@ export default defineEventHandler(async (event) => {
       
       results.push({
         tmdbId: bookmark.tmdb_id,
+        userId: bookmark.user_id,
         meta: bookmark.meta,
         updatedAt: bookmark.updated_at
       });
@@ -109,6 +111,7 @@ export default defineEventHandler(async (event) => {
     
     return {
       tmdbId: bookmark.tmdb_id,
+      userId: bookmark.user_id,
       meta: bookmark.meta,
       updatedAt: bookmark.updated_at
     };

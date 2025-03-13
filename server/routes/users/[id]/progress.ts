@@ -4,16 +4,16 @@ import { randomUUID } from 'crypto';
 
 const progressMetaSchema = z.object({
   title: z.string(),
-  year: z.number().optional(),
   poster: z.string().optional(),
-  type: z.enum(['movie', 'show'])
+  type: z.enum(['movie', 'tv', 'show']),
+  year: z.number().optional()
 });
 
 const progressItemSchema = z.object({
   meta: progressMetaSchema,
   tmdbId: z.string(),
-  duration: z.number().transform((n) => n.toString()),
-  watched: z.number().transform((n) => n.toString()),
+  duration: z.number().transform((n) => Math.round(n)),
+  watched: z.number().transform((n) => Math.round(n)),
   seasonId: z.string().optional(),
   episodeId: z.string().optional(),
   seasonNumber: z.number().optional(),
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   if (session.user !== userId) {
     throw createError({
       statusCode: 403,
-      message: 'Cannot access other user information'
+      message: 'Cannot modify user other than yourself'
     });
   }
 
@@ -57,18 +57,15 @@ export default defineEventHandler(async (event) => {
     return items.map(item => ({
       id: item.id,
       tmdbId: item.tmdb_id,
-      episode: {
-        id: item.episode_id || null,
-        number: item.episode_number || null
-      },
-      season: {
-        id: item.season_id || null,
-        number: item.season_number || null
-      },
+      userId: item.user_id,
+      seasonId: item.season_id,
+      episodeId: item.episode_id,
+      seasonNumber: item.season_number,
+      episodeNumber: item.episode_number,
       meta: item.meta,
-      duration: item.duration.toString(),
-      watched: item.watched.toString(),
-      updatedAt: item.updated_at.toISOString()
+      duration: Number(item.duration),
+      watched: Number(item.watched),
+      updatedAt: item.updated_at
     }));
   }
   

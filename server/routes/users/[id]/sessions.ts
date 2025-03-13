@@ -18,10 +18,12 @@ export default defineEventHandler(async (event) => {
 
   return sessions.map(s => ({
     id: s.id,
-    userId: s.user,
-    createdAt: s.created_at.toISOString(),
-    accessedAt: s.accessed_at.toISOString(),
+    user: s.user,
+    createdAt: s.created_at,
+    accessedAt: s.accessed_at,
+    expiresAt: s.expires_at,
     device: s.device,
-    userAgent: s.user_agent
+    userAgent: s.user_agent,
+    current: s.id === session.id
   }));
 });

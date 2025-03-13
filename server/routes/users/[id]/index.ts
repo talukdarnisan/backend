@@ -71,6 +71,51 @@ export default defineEventHandler(async (event) => {
     }
   }
   
+  if (event.method === 'DELETE') {
+    try {
+      log.info('Deleting user account', { userId });
+      
+      // Delete related records first
+      await prisma.$transaction(async (tx) => {
+        // Delete user bookmarks
+        await tx.bookmarks.deleteMany({
+          where: { user_id: userId }
+        });
+        
+        await tx.progress_items.deleteMany({
+          where: { user_id: userId }
+        });
+        
+        await tx.user_settings.delete({
+          where: { id: userId }
+        }).catch(() => {});
+        
+        await tx.sessions.deleteMany({
+          where: { user: userId }
+        });
+        
+        await tx.users.delete({
+          where: { id: userId }
+        });
+      });
+      
+      log.info('User account deleted successfully', { userId });
+      
+      return { success: true, message: 'User account deleted successfully' };
+    } catch (error) {
+      log.error('Failed to delete user account', {
+        userId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      
+      throw createError({
+        statusCode: 500,
+        message: 'Failed to delete user account',
+        cause: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+  
   throw createError({
     statusCode: 405,
     message: 'Method not allowed'

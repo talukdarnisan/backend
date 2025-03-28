@@ -22,7 +22,10 @@ function createLogger(scope: string): Logger {
       message,
       ...context,
     };
-    console.log(JSON.stringify(logData));
+
+    if (process.env.NODE_ENV === 'production') {
+      console.log(JSON.stringify(logData));
+    }
   };
 
   return {

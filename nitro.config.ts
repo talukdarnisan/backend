@@ -20,5 +20,9 @@ export default defineNitroConfig({
     },
     cryptoSecret: process.env.CRYPTO_SECRET,
     tmdbApiKey: process.env.TMDB_API_KEY,
+    trakt: {
+      clientId: process.env.TRAKT_CLIENT_ID,
+      clinetSecret: process.env.TRAKT_CLIENT_SECRET,
+    },
   }
 });

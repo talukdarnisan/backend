@@ -1,8 +1,6 @@
 import { randomUUID } from 'crypto';
 import { prisma } from './prisma';
-import { createRequire } from 'module';
 import nacl from 'tweetnacl';
-import bs58 from 'bs58';
 
 // Challenge code expires in 10 minutes
 const CHALLENGE_EXPIRY_MS = 10 * 60 * 1000;

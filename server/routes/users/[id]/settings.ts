@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
       applicationTheme: settings?.application_theme || null,
       applicationLanguage: settings?.application_language || 'en',
       defaultSubtitleLanguage: settings?.default_subtitle_language || null,
-      proxyUrls: settings?.proxy_urls || null,
+      proxyUrls: settings?.proxy_urls.length === 0 ? null : settings?.proxy_urls || null,
       traktKey: settings?.trakt_key || null,
       febboxKey: settings?.febbox_key || null
     };
@@ -48,22 +48,16 @@ export default defineEventHandler(async (event) => {
       
       const validatedBody = userSettingsSchema.parse(body);
       
-      // Handle proxyUrls properly - ensure it's an array or empty array when null
-      const proxyUrls = validatedBody.proxyUrls === null ? [] : (validatedBody.proxyUrls || []);
-      
       const data = {
         application_theme: validatedBody.applicationTheme ?? null,
         application_language: validatedBody.applicationLanguage,
         default_subtitle_language: validatedBody.defaultSubtitleLanguage ?? null,
-        proxy_urls: proxyUrls,
+        proxy_urls: validatedBody.proxyUrls === null ? [] : validatedBody.proxyUrls || [],
         trakt_key: validatedBody.traktKey ?? null,
         febbox_key: validatedBody.febboxKey ?? null
       };
 
-      log.info('Preparing to upsert settings', { 
-        userId, 
-        data: { ...data, proxy_urls: Array.isArray(data.proxy_urls) ? data.proxy_urls.length : 'not an array' }
-      });
+      log.info('Preparing to upsert settings', { userId, data });
 
       const settings = await prisma.user_settings.upsert({
         where: { id: userId },
@@ -81,7 +75,7 @@ export default defineEventHandler(async (event) => {
         applicationTheme: settings.application_theme,
         applicationLanguage: settings.application_language,
         defaultSubtitleLanguage: settings.default_subtitle_language,
-        proxyUrls: settings.proxy_urls,
+        proxyUrls: settings.proxy_urls.length === 0 ? null : settings.proxy_urls,
         traktKey: settings.trakt_key,
         febboxKey: settings.febbox_key
       };

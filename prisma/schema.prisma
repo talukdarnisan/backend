@@ -65,9 +65,6 @@ model user_settings {
   proxy_urls                String[]
   trakt_key                 String?  @db.VarChar(255)
   febbox_key                String?  @db.VarChar(255)
-  region                    String?  @db.VarChar(255)
-  user_picked               Boolean  @default(false)
-  last_checked              DateTime? @db.Timestamptz(0)
 }
 
 model users {

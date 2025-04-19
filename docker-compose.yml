@@ -28,9 +28,9 @@ services:
       META_NAME: ${META_NAME}
       META_DESCRIPTION: ${META_DESCRIPTION}
       CRYPTO_SECRET: ${CRYPTO_SECRET:?crypto secret required}
-      TMDB_API_KEY: ${TMDB_API_KEY:?TMDB API key password required}
-      TRAKT_CLIENT_ID: ${TRAKT_CLIENT_ID:?TMDB client ID password required}
-      TRAKT_SECRET_ID: ${TRAKT_SECRET_ID:?TMDB secret ID password required}
+      TMDB_API_KEY: ${TMDB_API_KEY:?TMDB API key required}
+      TRAKT_CLIENT_ID: ${TRAKT_CLIENT_ID:?Trakt client ID required}
+      TRAKT_SECRET_ID: ${TRAKT_SECRET_ID:?Trakt secret ID required}
       CAPTCHA: ${CAPTCHA}
       CAPTCHA_CLIENT_KEY: ${CAPTCHA_CLIENT_KEY}
       NODE_ENV: ${NODE_ENV:-production}

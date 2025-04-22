@@ -4,15 +4,16 @@ import { z } from "zod";
 
 const prisma = new PrismaClient();
 
-// Schema for validating the request body
 const listItemSchema = z.object({
   tmdb_id: z.string(),
+  type: z.enum(["movie", "tv"]),
 });
 
 const createListSchema = z.object({
   name: z.string().min(1).max(255),
   description: z.string().max(255).optional().nullable(),
   items: z.array(listItemSchema).optional(),
+  public: z.boolean().optional(),
 });
 
 export default defineEventHandler(async (event) => {
@@ -46,6 +47,7 @@ export default defineEventHandler(async (event) => {
         user_id: userId,
         name: validatedBody.name,
         description: validatedBody.description || null,
+        public: validatedBody.public || false,
       },
     });
 
@@ -54,6 +56,7 @@ export default defineEventHandler(async (event) => {
         data: validatedBody.items.map((item) => ({
           list_id: newList.id,
           tmdb_id: item.tmdb_id,
+          type: item.type, // Type is mapped here
         })),
         skipDuplicates: true,
       });

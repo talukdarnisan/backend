@@ -95,6 +95,7 @@ model list_items {
   id         String   @id @db.Uuid @default(uuid())
   list_id    String   @db.Uuid 
   tmdb_id    String   @db.VarChar(255)
+  type       String?   @db.VarChar(255)
   added_at   DateTime @default(now()) @db.Timestamptz(0)
   list   lists @relation(fields: [list_id], references: [id])
 

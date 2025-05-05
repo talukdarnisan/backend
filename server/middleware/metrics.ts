@@ -4,22 +4,16 @@ import { scopedLogger } from '~/utils/logger';
 const log = scopedLogger('metrics-middleware');
 
 // Paths we don't want to track metrics for
-const EXCLUDED_PATHS = [
-  '/metrics',
-  '/ping.txt',
-  '/favicon.ico',
-  '/robots.txt',
-  '/sitemap.xml'
-];
+const EXCLUDED_PATHS = ['/metrics', '/ping.txt', '/favicon.ico', '/robots.txt', '/sitemap.xml'];
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   // Skip tracking excluded paths
   if (EXCLUDED_PATHS.includes(event.path)) {
     return;
   }
 
   const start = process.hrtime();
-  
+
   try {
     // Wait for the request to complete
     await event._handled;
@@ -27,12 +21,12 @@ export default defineEventHandler(async (event) => {
     // Calculate duration once the response is sent
     const [seconds, nanoseconds] = process.hrtime(start);
     const duration = seconds + nanoseconds / 1e9;
-    
+
     // Get cleaned route path (remove dynamic segments)
     const method = event.method;
     const route = getCleanPath(event.path);
     const statusCode = event.node.res.statusCode || 200;
-    
+
     // Record the request metrics
     recordHttpRequest(method, route, statusCode, duration);
 
@@ -41,7 +35,7 @@ export default defineEventHandler(async (event) => {
       method,
       route,
       statusCode,
-      duration
+      duration,
     });
   }
 });
@@ -56,4 +50,4 @@ function getCleanPath(path: string): string {
     .replace(/\/[^\/]+\/progress\/[^\/]+/, '/:uid/progress/:tmdbid')
     .replace(/\/[^\/]+\/bookmarks\/[^\/]+/, '/:uid/bookmarks/:tmdbid')
     .replace(/\/sessions\/[^\/]+/, '/sessions/:sid');
-} 
+}

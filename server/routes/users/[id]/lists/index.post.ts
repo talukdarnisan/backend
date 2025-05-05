@@ -1,12 +1,12 @@
-import { useAuth } from "#imports";
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
+import { useAuth } from '#imports';
+import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 
 const prisma = new PrismaClient();
 
 const listItemSchema = z.object({
   tmdb_id: z.string(),
-  type: z.enum(["movie", "tv"]),
+  type: z.enum(['movie', 'tv']),
 });
 
 const createListSchema = z.object({
@@ -16,14 +16,14 @@ const createListSchema = z.object({
   public: z.boolean().optional(),
 });
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const userId = event.context.params?.id;
   const session = await useAuth().getCurrentSession();
 
   if (session.user !== userId) {
     throw createError({
       statusCode: 403,
-      message: "Cannot modify user other than yourself",
+      message: 'Cannot modify user other than yourself',
     });
   }
 
@@ -31,17 +31,17 @@ export default defineEventHandler(async (event) => {
 
   let parsedBody;
   try {
-    parsedBody = typeof body === "string" ? JSON.parse(body) : body;
+    parsedBody = typeof body === 'string' ? JSON.parse(body) : body;
   } catch (error) {
     throw createError({
       statusCode: 400,
-      message: "Invalid request body format",
+      message: 'Invalid request body format',
     });
   }
 
   const validatedBody = createListSchema.parse(parsedBody);
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async tx => {
     const newList = await tx.lists.create({
       data: {
         user_id: userId,
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
 
     if (validatedBody.items && validatedBody.items.length > 0) {
       await tx.list_items.createMany({
-        data: validatedBody.items.map((item) => ({
+        data: validatedBody.items.map(item => ({
           list_id: newList.id,
           tmdb_id: item.tmdb_id,
           type: item.type, // Type is mapped here
@@ -70,6 +70,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     list: result,
-    message: "List created successfully",
+    message: 'List created successfully',
   };
 });

@@ -11,14 +11,14 @@ const completeSchema = z.object({
   device: z.string().max(500).min(1),
 });
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const body = await readBody(event);
-  
+
   const result = completeSchema.safeParse(body);
   if (!result.success) {
     throw createError({
       statusCode: 400,
-      message: 'Invalid request body'
+      message: 'Invalid request body',
     });
   }
 
@@ -32,19 +32,19 @@ export default defineEventHandler(async (event) => {
   );
 
   const user = await prisma.users.findUnique({
-    where: { public_key: body.publicKey }
+    where: { public_key: body.publicKey },
   });
 
   if (!user) {
     throw createError({
       statusCode: 401,
-      message: 'User cannot be found'
+      message: 'User cannot be found',
     });
   }
 
   await prisma.users.update({
     where: { id: user.id },
-    data: { last_logged_in: new Date() }
+    data: { last_logged_in: new Date() },
   });
 
   const auth = useAuth();
@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
       publicKey: user.public_key,
       namespace: user.namespace,
       profile: user.profile,
-      permissions: user.permissions
+      permissions: user.permissions,
     },
     session: {
       id: session.id,
@@ -67,8 +67,8 @@ export default defineEventHandler(async (event) => {
       accessedAt: session.accessed_at,
       expiresAt: session.expires_at,
       device: session.device,
-      userAgent: session.user_agent
+      userAgent: session.user_agent,
     },
-    token
+    token,
   };
 });

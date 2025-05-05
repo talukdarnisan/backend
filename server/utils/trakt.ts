@@ -1,8 +1,8 @@
-import Trakt from "trakt.tv";
+import Trakt from 'trakt.tv';
 const traktKeys = useRuntimeConfig().trakt;
 
 if (!traktKeys) {
-  throw new Error("Missing TraktKeys info ERROR: " + JSON.stringify(traktKeys));
+  throw new Error('Missing TraktKeys info ERROR: ' + JSON.stringify(traktKeys));
 }
 
 const options = {

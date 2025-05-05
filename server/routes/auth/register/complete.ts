@@ -18,17 +18,17 @@ const completeSchema = z.object({
   }),
 });
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const body = await readBody(event);
-  
+
   const result = completeSchema.safeParse(body);
   if (!result.success) {
     throw createError({
       statusCode: 400,
-      message: 'Invalid request body'
+      message: 'Invalid request body',
     });
   }
-  
+
   const challenge = useChallenge();
   await challenge.verifyChallengeCode(
     body.challenge.code,
@@ -39,19 +39,19 @@ export default defineEventHandler(async (event) => {
   );
 
   const existingUser = await prisma.users.findUnique({
-    where: { public_key: body.publicKey }
+    where: { public_key: body.publicKey },
   });
-  
+
   if (existingUser) {
     throw createError({
       statusCode: 409,
-      message: 'A user with this public key already exists'
+      message: 'A user with this public key already exists',
     });
   }
-  
+
   const userId = randomUUID();
   const now = new Date();
-  
+
   const user = await prisma.users.create({
     data: {
       id: userId,
@@ -60,22 +60,22 @@ export default defineEventHandler(async (event) => {
       created_at: now,
       last_logged_in: now,
       permissions: [],
-      profile: body.profile
-    }
+      profile: body.profile,
+    },
   });
-  
+
   const auth = useAuth();
   const userAgent = getRequestHeader(event, 'user-agent');
   const session = await auth.makeSession(user.id, body.device, userAgent);
   const token = auth.makeSessionToken(session);
-  
+
   return {
     user: {
       id: user.id,
       publicKey: user.public_key,
       namespace: user.namespace,
       profile: user.profile,
-      permissions: user.permissions
+      permissions: user.permissions,
     },
     session: {
       id: session.id,
@@ -84,8 +84,8 @@ export default defineEventHandler(async (event) => {
       accessedAt: session.accessed_at,
       expiresAt: session.expires_at,
       device: session.device,
-      userAgent: session.user_agent
+      userAgent: session.user_agent,
     },
-    token
+    token,
   };
 });

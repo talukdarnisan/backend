@@ -9,19 +9,19 @@ const progressMetaSchema = z.object({
   title: z.string(),
   type: z.enum(['movie', 'show']),
   year: z.number(),
-  poster: z.string().optional()
+  poster: z.string().optional(),
 });
 
 const progressItemSchema = z.object({
   meta: progressMetaSchema,
   tmdbId: z.string(),
-  duration: z.number(),
-  watched: z.number(),
+  duration: z.number().min(0),
+  watched: z.number().min(0),
   seasonId: z.string().optional(),
   episodeId: z.string().optional(),
   seasonNumber: z.number().optional(),
   episodeNumber: z.number().optional(),
-  updatedAt: z.string().datetime({ offset: true }).optional()
+  updatedAt: z.string().datetime({ offset: true }).optional(),
 });
 
 // 13th July 2021 - movie-web epoch
@@ -33,47 +33,59 @@ function defaultAndCoerceDateTime(dateTime: string | undefined) {
   return new Date(clampedEpoch);
 }
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const userId = event.context.params?.id;
-  
+
   const session = await useAuth().getCurrentSession();
-  
+
   if (session.user !== userId) {
     throw createError({
       statusCode: 403,
-      message: 'Cannot modify user other than yourself'
+      message: 'Cannot modify user other than yourself',
+    });
+  }
+
+  // First check if user exists
+  const user = await prisma.users.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw createError({
+      statusCode: 404,
+      message: 'User not found',
     });
   }
 
   if (event.method !== 'PUT') {
     throw createError({
       statusCode: 405,
-      message: 'Method not allowed'
+      message: 'Method not allowed',
     });
   }
 
   try {
     const body = await readBody(event);
     const validatedBody = z.array(progressItemSchema).parse(body);
-    
+
     const existingItems = await prisma.progress_items.findMany({
-      where: { user_id: userId }
+      where: { user_id: userId },
     });
-    
+
     const newItems = [...validatedBody];
     const itemsToUpsert = [];
-    
+
     for (const existingItem of existingItems) {
       const newItemIndex = newItems.findIndex(
-        (item) =>
+        item =>
           item.tmdbId === existingItem.tmdb_id &&
           item.seasonId === (existingItem.season_id === '\n' ? null : existingItem.season_id) &&
           item.episodeId === (existingItem.episode_id === '\n' ? null : existingItem.episode_id)
       );
-      
+
       if (newItemIndex > -1) {
         const newItem = newItems[newItemIndex];
-        
+
         if (Number(existingItem.watched) < newItem.watched) {
           const isMovie = newItem.meta.type === 'movie';
           itemsToUpsert.push({
@@ -87,14 +99,14 @@ export default defineEventHandler(async (event) => {
             duration: BigInt(newItem.duration),
             watched: BigInt(newItem.watched),
             meta: newItem.meta,
-            updated_at: defaultAndCoerceDateTime(newItem.updatedAt)
+            updated_at: defaultAndCoerceDateTime(newItem.updatedAt),
           });
         }
-        
+
         newItems.splice(newItemIndex, 1);
       }
     }
-    
+
     // Create new items
     for (const item of newItems) {
       const isMovie = item.meta.type === 'movie';
@@ -102,17 +114,17 @@ export default defineEventHandler(async (event) => {
         id: randomUUID(),
         tmdb_id: item.tmdbId,
         user_id: userId,
-        season_id: isMovie ? '\n' : (item.seasonId || null),
-        episode_id: isMovie ? '\n' : (item.episodeId || null),
+        season_id: isMovie ? '\n' : item.seasonId || null,
+        episode_id: isMovie ? '\n' : item.episodeId || null,
         season_number: isMovie ? null : item.seasonNumber,
         episode_number: isMovie ? null : item.episodeNumber,
         duration: BigInt(item.duration),
         watched: BigInt(item.watched),
         meta: item.meta,
-        updated_at: defaultAndCoerceDateTime(item.updatedAt)
+        updated_at: defaultAndCoerceDateTime(item.updatedAt),
       });
     }
-    
+
     // Upsert all items
     const results = [];
     for (const item of itemsToUpsert) {
@@ -123,59 +135,63 @@ export default defineEventHandler(async (event) => {
               tmdb_id: item.tmdb_id,
               user_id: item.user_id,
               season_id: item.season_id,
-              episode_id: item.episode_id
-            }
+              episode_id: item.episode_id,
+            },
           },
           create: item,
           update: {
             duration: item.duration,
             watched: item.watched,
             meta: item.meta,
-            updated_at: item.updated_at
-          }
+            updated_at: item.updated_at,
+          },
         });
-        
+
         results.push({
           id: result.id,
           tmdbId: result.tmdb_id,
           episode: {
             id: result.episode_id === '\n' ? null : result.episode_id,
-            number: result.episode_number
+            number: result.episode_number,
           },
           season: {
             id: result.season_id === '\n' ? null : result.season_id,
-            number: result.season_number
+            number: result.season_number,
           },
           meta: result.meta,
           duration: result.duration.toString(),
           watched: result.watched.toString(),
-          updatedAt: result.updated_at.toISOString()
+          updatedAt: result.updated_at.toISOString(),
         });
       } catch (error) {
         log.error('Failed to upsert progress item', {
           userId,
           tmdbId: item.tmdb_id,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         });
         throw error;
       }
     }
-    
+
     return results;
   } catch (error) {
     log.error('Failed to import progress', {
       userId,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
-    
+
     if (error instanceof z.ZodError) {
       throw createError({
         statusCode: 400,
         message: 'Invalid progress data',
-        cause: error.errors
+        cause: error.errors,
       });
     }
-    
-    throw error;
+
+    throw createError({
+      statusCode: 500,
+      message: 'Failed to import progress',
+      cause: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
 });

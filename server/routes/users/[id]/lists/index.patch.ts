@@ -1,12 +1,12 @@
-import { useAuth } from "#imports";
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
+import { useAuth } from '#imports';
+import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 
 const prisma = new PrismaClient();
 
 const listItemSchema = z.object({
   tmdb_id: z.string(),
-  type: z.enum(["movie", "tv"]),
+  type: z.enum(['movie', 'tv']),
 });
 
 const updateListSchema = z.object({
@@ -18,14 +18,14 @@ const updateListSchema = z.object({
   removeItems: z.array(listItemSchema).optional(),
 });
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const userId = event.context.params?.id;
   const session = await useAuth().getCurrentSession();
 
   if (session.user !== userId) {
     throw createError({
       statusCode: 403,
-      message: "Cannot modify lists for other users",
+      message: 'Cannot modify lists for other users',
     });
   }
 
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
   if (!list) {
     throw createError({
       statusCode: 404,
-      message: "List not found",
+      message: 'List not found',
     });
   }
 
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async tx => {
     if (
       validatedBody.name ||
       validatedBody.description !== undefined ||
@@ -62,24 +62,22 @@ export default defineEventHandler(async (event) => {
         data: {
           name: validatedBody.name ?? list.name,
           description:
-            validatedBody.description !== undefined
-              ? validatedBody.description
-              : list.description,
+            validatedBody.description !== undefined ? validatedBody.description : list.description,
           public: validatedBody.public ?? list.public,
         },
       });
     }
 
     if (validatedBody.addItems && validatedBody.addItems.length > 0) {
-      const existingTmdbIds = list.list_items.map((item) => item.tmdb_id);
+      const existingTmdbIds = list.list_items.map(item => item.tmdb_id);
 
       const itemsToAdd = validatedBody.addItems.filter(
-        (item) => !existingTmdbIds.includes(item.tmdb_id)
+        item => !existingTmdbIds.includes(item.tmdb_id)
       );
 
       if (itemsToAdd.length > 0) {
         await tx.list_items.createMany({
-          data: itemsToAdd.map((item) => ({
+          data: itemsToAdd.map(item => ({
             list_id: list.id,
             tmdb_id: item.tmdb_id,
             type: item.type,
@@ -90,9 +88,7 @@ export default defineEventHandler(async (event) => {
     }
 
     if (validatedBody.removeItems && validatedBody.removeItems.length > 0) {
-      const tmdbIdsToRemove = validatedBody.removeItems.map(
-        (item) => item.tmdb_id
-      );
+      const tmdbIdsToRemove = validatedBody.removeItems.map(item => item.tmdb_id);
 
       await tx.list_items.deleteMany({
         where: {
@@ -110,6 +106,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     list: result,
-    message: "List updated successfully",
+    message: 'List updated successfully',
   };
 });

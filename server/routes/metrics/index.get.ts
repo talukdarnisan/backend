@@ -15,7 +15,7 @@ async function ensureMetricsInitialized() {
   }
 }
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   try {
     await ensureMetricsInitialized();
     const metrics = await register.metrics();
@@ -24,11 +24,11 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     log.error('Error in metrics endpoint:', {
       evt: 'metrics_error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw createError({
       statusCode: 500,
-      message: error instanceof Error ? error.message : 'Failed to collect metrics'
+      message: error instanceof Error ? error.message : 'Failed to collect metrics',
     });
   }
-}); 
+});

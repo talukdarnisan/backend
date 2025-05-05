@@ -1,7 +1,7 @@
 name: Bug Report or Feature Request
 description: File a bug report or request a new feature... llm template so sorry if it breaks
-title: "[BUG/FEATURE]: "
-labels: ["triage"]
+title: '[BUG/FEATURE]: '
+labels: ['triage']
 body:
   - type: markdown
     attributes:

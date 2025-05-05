@@ -35,23 +35,23 @@ const metricsProviderInputSchema = z.object({
   batchId: z.string().optional(),
 });
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   // Handle both POST and PUT methods
   if (event.method !== 'POST' && event.method !== 'PUT') {
     throw createError({
       statusCode: 405,
-      message: 'Method not allowed'
+      message: 'Method not allowed',
     });
   }
 
   try {
     await ensureMetricsInitialized();
-    
+
     const body = await readBody(event);
     const validatedBody = metricsProviderInputSchema.parse(body);
 
     const hostname = event.node.req.headers.origin?.slice(0, 255) ?? '<UNKNOWN>';
-    
+
     // Use the simplified recordProviderMetrics function to handle all metrics recording
     recordProviderMetrics(validatedBody.items, hostname, validatedBody.tool);
 
@@ -59,11 +59,11 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     log.error('Failed to process metrics', {
       evt: 'metrics_error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw createError({
       statusCode: error instanceof Error && error.message === 'metrics not initialized' ? 503 : 400,
-      message: error instanceof Error ? error.message : 'Failed to process metrics'
+      message: error instanceof Error ? error.message : 'Failed to process metrics',
     });
   }
-}); 
+});

@@ -38,4 +38,4 @@ function createLogger(scope: string): Logger {
 
 export function scopedLogger(scope: string): Logger {
   return createLogger(scope);
-} 
+}

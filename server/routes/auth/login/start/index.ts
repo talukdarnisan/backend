@@ -5,25 +5,25 @@ const startSchema = z.object({
   publicKey: z.string(),
 });
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const body = await readBody(event);
-  
+
   const result = startSchema.safeParse(body);
   if (!result.success) {
     throw createError({
       statusCode: 400,
-      message: 'Invalid request body'
+      message: 'Invalid request body',
     });
   }
 
   const user = await prisma.users.findUnique({
-    where: { public_key: body.publicKey }
+    where: { public_key: body.publicKey },
   });
 
   if (!user) {
     throw createError({
       statusCode: 401,
-      message: 'User cannot be found'
+      message: 'User cannot be found',
     });
   }
 
@@ -31,6 +31,6 @@ export default defineEventHandler(async (event) => {
   const challengeCode = await challenge.createChallengeCode('login', 'mnemonic');
 
   return {
-    challenge: challengeCode.code
+    challenge: challengeCode.code,
   };
 });

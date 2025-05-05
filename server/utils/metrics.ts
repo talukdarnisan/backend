@@ -87,23 +87,19 @@ async function createMetrics(): Promise<Metrics> {
 async function saveMetricsToFile() {
   try {
     if (!metrics) return;
-    
+
     const metricsData = await register.getMetricsAsJSON();
-    const relevantMetrics = metricsData.filter(metric => 
-      metric.name.startsWith('mw_') || 
-      metric.name === 'http_request_duration_seconds'
+    const relevantMetrics = metricsData.filter(
+      metric => metric.name.startsWith('mw_') || metric.name === 'http_request_duration_seconds'
     );
-    
-    fs.writeFileSync(
-      METRICS_FILE,
-      JSON.stringify(relevantMetrics, null, 2)
-    );
-    
+
+    fs.writeFileSync(METRICS_FILE, JSON.stringify(relevantMetrics, null, 2));
+
     log.info('Metrics saved to file', { evt: 'metrics_saved' });
   } catch (error) {
     log.error('Failed to save metrics', {
       evt: 'save_metrics_error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
   }
 }
@@ -117,15 +113,15 @@ async function loadMetricsFromFile(): Promise<any[]> {
 
     const data = fs.readFileSync(METRICS_FILE, 'utf8');
     const savedMetrics = JSON.parse(data);
-    log.info('Loaded saved metrics', { 
+    log.info('Loaded saved metrics', {
       evt: 'metrics_loaded',
-      count: savedMetrics.length 
+      count: savedMetrics.length,
     });
     return savedMetrics;
   } catch (error) {
     log.error('Failed to load metrics', {
       evt: 'load_metrics_error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     return [];
   }
@@ -172,9 +168,9 @@ export async function setupMetrics() {
     const savedMetrics = await loadMetricsFromFile();
     if (savedMetrics.length > 0) {
       log.info('Restoring saved metrics...', { evt: 'restore_metrics' });
-      savedMetrics.forEach((metric) => {
+      savedMetrics.forEach(metric => {
         if (metric.values) {
-          metric.values.forEach((value) => {
+          metric.values.forEach(value => {
             switch (metric.name) {
               case 'mw_user_count':
                 metrics?.user.inc(value.labels, value.value);
@@ -196,8 +192,10 @@ export async function setupMetrics() {
                 break;
               case 'http_request_duration_seconds':
                 // For histograms, special handling for sum and count
-                if (value.metricName === 'http_request_duration_seconds_sum' ||
-                    value.metricName === 'http_request_duration_seconds_count') {
+                if (
+                  value.metricName === 'http_request_duration_seconds_sum' ||
+                  value.metricName === 'http_request_duration_seconds_count'
+                ) {
                   metrics?.httpRequestDuration.observe(value.labels, value.value);
                 }
                 break;
@@ -226,7 +224,7 @@ export async function setupMetrics() {
 async function updateMetrics() {
   try {
     log.info('Fetching users from database...', { evt: 'update_metrics_start' });
-    
+
     const users = await prisma.users.groupBy({
       by: ['namespace'],
       _count: true,
@@ -237,35 +235,40 @@ async function updateMetrics() {
     metrics?.user.reset();
     log.info('Reset user metrics counter', { evt: 'metrics_reset' });
 
-    users.forEach((v) => {
-      log.info('Incrementing user metric', { 
+    users.forEach(v => {
+      log.info('Incrementing user metric', {
         evt: 'increment_metric',
-        namespace: v.namespace, 
-        count: v._count 
+        namespace: v.namespace,
+        count: v._count,
       });
       metrics?.user.inc({ namespace: v.namespace }, v._count);
     });
 
     log.info('Successfully updated metrics', { evt: 'update_metrics_complete' });
   } catch (error) {
-    log.error('Failed to update metrics', { 
+    log.error('Failed to update metrics', {
       evt: 'update_metrics_error',
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
 
 // Export function to record HTTP request duration
-export function recordHttpRequest(method: string, route: string, statusCode: number, duration: number) {
+export function recordHttpRequest(
+  method: string,
+  route: string,
+  statusCode: number,
+  duration: number
+) {
   if (!metrics) return;
-  
-  const labels = { 
-    method, 
-    route, 
-    status_code: statusCode.toString() 
+
+  const labels = {
+    method,
+    route,
+    status_code: statusCode.toString(),
   };
-  
+
   // Record in both histogram and summary
   metrics.httpRequestDuration.observe(labels, duration);
   metrics.httpRequestSummary.observe(labels, duration);
@@ -274,12 +277,12 @@ export function recordHttpRequest(method: string, route: string, statusCode: num
 // Functions to match previous backend API
 export function recordProviderMetrics(items: any[], hostname: string, tool?: string) {
   if (!metrics) return;
-  
+
   // Record hostname once per request
   metrics.providerHostnames.inc({ hostname });
 
   // Record status and watch metrics for each item
-  items.forEach((item) => {
+  items.forEach(item => {
     // Record provider status
     metrics.providerStatuses.inc({
       provider_id: item.embedId ?? item.providerId,
@@ -303,4 +306,4 @@ export function recordProviderMetrics(items: any[], hostname: string, tool?: str
 
 export function recordCaptchaMetrics(success: boolean) {
   metrics?.captchaSolves.inc({ success: success.toString() });
-} 
+}

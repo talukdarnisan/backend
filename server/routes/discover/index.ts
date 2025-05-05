@@ -1,21 +1,19 @@
-import { TMDB } from "tmdb-ts";
+import { TMDB } from 'tmdb-ts';
 const tmdb = new TMDB(useRuntimeConfig().tmdbApiKey);
-import { trakt } from "#imports";
+import { trakt } from '#imports';
 
 export default defineCachedEventHandler(
-  async (event) => {
+  async event => {
     const popular = { movies: [], shows: [] };
     popular.movies.push(
-      ...((data) => (
-        data.results.sort((a, b) => b.vote_average - a.vote_average),
-        data.results
-      ))(await tmdb.movies.popular())
+      ...(data => (data.results.sort((a, b) => b.vote_average - a.vote_average), data.results))(
+        await tmdb.movies.popular()
+      )
     ); // Sorts by vote average
     popular.shows.push(
-      ...((data) => (
-        data.results.sort((a, b) => b.vote_average - a.vote_average),
-        data.results
-      ))(await tmdb.tvShows.popular())
+      ...(data => (data.results.sort((a, b) => b.vote_average - a.vote_average), data.results))(
+        await tmdb.tvShows.popular()
+      )
     ); // Sorts by vote average
 
     const genres = {
@@ -44,7 +42,7 @@ export default defineCachedEventHandler(
     for (let list = 0; list < internalLists.trending.length; list++) {
       const items = await trakt.lists.items({
         id: internalLists.trending[list].list.ids.trakt,
-        type: "all",
+        type: 'all',
       });
       lists.push({
         name: internalLists.trending[list].list.name,
@@ -55,7 +53,7 @@ export default defineCachedEventHandler(
         switch (true) {
           case !!items[item].movie?.ids?.tmdb:
             lists[list].items.push({
-              type: "movie",
+              type: 'movie',
               name: items[item].movie.title,
               id: items[item].movie.ids.tmdb,
               year: items[item].movie.year,
@@ -63,7 +61,7 @@ export default defineCachedEventHandler(
             break;
           case !!items[item].show?.ids?.tmdb:
             lists[list].items.push({
-              type: "show",
+              type: 'show',
               name: items[item].show.title,
               id: items[item].show.ids.tmdb,
               year: items[item].show.year,
@@ -76,7 +74,7 @@ export default defineCachedEventHandler(
     for (let list = 0; list < internalLists.popular.length; list++) {
       const items = await trakt.lists.items({
         id: internalLists.popular[list].list.ids.trakt,
-        type: "all",
+        type: 'all',
       });
       lists.push({
         name: internalLists.popular[list].list.name,
@@ -87,7 +85,7 @@ export default defineCachedEventHandler(
         switch (true) {
           case !!items[item].movie?.ids?.tmdb:
             lists[lists.length - 1].items.push({
-              type: "movie",
+              type: 'movie',
               name: items[item].movie.title,
               id: items[item].movie.ids.tmdb,
               year: items[item].movie.year,
@@ -95,7 +93,7 @@ export default defineCachedEventHandler(
             break;
           case !!items[item].show?.ids?.tmdb:
             lists[lists.length - 1].items.push({
-              type: "show",
+              type: 'show',
               name: items[item].show.title,
               id: items[item].show.ids.tmdb,
               year: items[item].show.year,
@@ -123,6 +121,6 @@ export default defineCachedEventHandler(
     };
   },
   {
-    maxAge: process.env.NODE_ENV === "production" ? 60 * 60 : 0, // 20 Minutes for prod, no cache for dev. Customize to your liking
+    maxAge: process.env.NODE_ENV === 'production' ? 60 * 60 : 0, // 20 Minutes for prod, no cache for dev. Customize to your liking
   }
 );

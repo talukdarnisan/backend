@@ -8,15 +8,15 @@ const log = scopedLogger('progress-import');
 const progressMetaSchema = z.object({
   title: z.string(),
   type: z.enum(['movie', 'show']),
-  year: z.number(),
+  year: z.number().optional(),
   poster: z.string().optional(),
 });
 
 const progressItemSchema = z.object({
   meta: progressMetaSchema,
-  tmdbId: z.string(),
-  duration: z.number().min(0),
-  watched: z.number().min(0),
+  tmdbId: z.string().transform(val => val || randomUUID()),
+  duration: z.number().min(0).transform(n => Math.round(n)),
+  watched: z.number().min(0).transform(n => Math.round(n)),
   seasonId: z.string().optional(),
   episodeId: z.string().optional(),
   seasonNumber: z.number().optional(),

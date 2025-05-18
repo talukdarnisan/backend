@@ -75,30 +75,30 @@ model users {
   created_at     DateTime  @db.Timestamptz(0)
   last_logged_in DateTime? @db.Timestamptz(0)
   permissions    String[]
-  ratings        Json      @default("[]")
   profile        Json
+  ratings        Json      @default("[]")
 }
 
 model lists {
-  id          String   @id @db.Uuid @default(uuid())
-  user_id     String   @db.VarChar(255)
-  name        String   @db.VarChar(255)
-  description String?  @db.VarChar(255)
-  created_at  DateTime @default(now()) @db.Timestamptz(0)
-  updated_at  DateTime @updatedAt @db.Timestamptz(0)
-  public     Boolean  @default(false)
-  list_items list_items[]
+  id          String       @id @default(uuid()) @db.Uuid
+  user_id     String       @db.VarChar(255)
+  name        String       @db.VarChar(255)
+  description String?      @db.VarChar(255)
+  created_at  DateTime     @default(now()) @db.Timestamptz(0)
+  updated_at  DateTime     @updatedAt @db.Timestamptz(0)
+  public      Boolean      @default(false)
+  list_items  list_items[]
 
   @@index([user_id], map: "lists_user_id_index")
 }
 
 model list_items {
-  id         String   @id @db.Uuid @default(uuid())
-  list_id    String   @db.Uuid 
-  tmdb_id    String   @db.VarChar(255)
-  type       String?   @db.VarChar(255)
-  added_at   DateTime @default(now()) @db.Timestamptz(0)
-  list   lists @relation(fields: [list_id], references: [id])
+  id       String   @id @default(uuid()) @db.Uuid
+  list_id  String   @db.Uuid
+  tmdb_id  String   @db.VarChar(255)
+  added_at DateTime @default(now()) @db.Timestamptz(0)
+  type     String?  @db.VarChar(255)
+  list     lists    @relation(fields: [list_id], references: [id])
 
   @@unique([list_id, tmdb_id], map: "list_items_list_id_tmdb_id_unique")
 }

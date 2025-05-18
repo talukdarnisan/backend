@@ -36,10 +36,10 @@ export const CLEANUP_INTERVAL = 1 * 60 * 1000;
 // Clean up old status entries
 function cleanupOldStatuses() {
   const cutoffTime = Date.now() - CLEANUP_INTERVAL;
-  
+
   for (const [key, statuses] of playerStatusStore.entries()) {
     const filteredStatuses = statuses.filter(status => status.timestamp >= cutoffTime);
-    
+
     if (filteredStatuses.length === 0) {
       playerStatusStore.delete(key);
     } else {
@@ -49,4 +49,4 @@ function cleanupOldStatuses() {
 }
 
 // Schedule cleanup every 1 minute
-setInterval(cleanupOldStatuses, 1 * 60 * 1000); 
+setInterval(cleanupOldStatuses, 1 * 60 * 1000);

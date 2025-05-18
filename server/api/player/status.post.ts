@@ -1,16 +1,16 @@
 import { defineEventHandler, readBody, createError } from 'h3';
 import { playerStatusStore, PlayerStatus } from '~/utils/playerStatus';
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async event => {
   const body = await readBody(event);
-  
+
   if (!body || !body.userId || !body.roomCode) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Missing required fields: userId, roomCode'
+      statusMessage: 'Missing required fields: userId, roomCode',
     });
   }
-  
+
   const status: PlayerStatus = {
     userId: body.userId,
     roomCode: body.roomCode,
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
       seasonId: body.content?.seasonId,
       episodeId: body.content?.episodeId,
       seasonNumber: body.content?.seasonNumber,
-      episodeNumber: body.content?.episodeNumber
+      episodeNumber: body.content?.episodeNumber,
     },
     player: {
       isPlaying: body.player?.isPlaying || false,
@@ -35,19 +35,19 @@ export default defineEventHandler(async (event) => {
       playbackRate: body.player?.playbackRate || 1,
       buffered: body.player?.buffered || 0,
     },
-    timestamp: Date.now()
+    timestamp: Date.now(),
   };
-  
+
   const key = `${status.userId}:${status.roomCode}`;
   const existingStatuses = playerStatusStore.get(key) || [];
-  
+
   // Add new status and keep only the last 5 statuses
   existingStatuses.push(status);
   if (existingStatuses.length > 5) {
     existingStatuses.shift();
   }
-  
+
   playerStatusStore.set(key, existingStatuses);
-  
+
   return { success: true, timestamp: status.timestamp };
-}); 
+});

@@ -12,26 +12,28 @@ Send a player status update.
 
 ```json
 {
-  "userId": "user123",           // Required: User identifier
-  "roomCode": "room456",         // Required: Room code
-  "isHost": true,                // Optional: Whether the user is the host
-  "content": {                   // Optional: Content information
+  "userId": "user123", // Required: User identifier
+  "roomCode": "room456", // Required: Room code
+  "isHost": true, // Optional: Whether the user is the host
+  "content": {
+    // Optional: Content information
     "title": "Movie Title",
-    "type": "Movie",             // "Movie", "TV Show", etc.
-    "tmdbId": 12345,             // Optional: TMDB ID for the content
-    "seasonNumber": 1,           // Optional: Season number (for TV shows)
-    "episodeNumber": 3           // Optional: Episode number (for TV shows)
+    "type": "Movie", // "Movie", "TV Show", etc.
+    "tmdbId": 12345, // Optional: TMDB ID for the content
+    "seasonNumber": 1, // Optional: Season number (for TV shows)
+    "episodeNumber": 3 // Optional: Episode number (for TV shows)
   },
-  "player": {                    // Optional: Player state
+  "player": {
+    // Optional: Player state
     "isPlaying": true,
     "isPaused": false,
     "isLoading": false,
     "hasPlayedOnce": true,
-    "time": 120.5,               // Current playback position in seconds
-    "duration": 3600,            // Total content duration in seconds
-    "volume": 0.8,               // Volume level (0-1)
-    "playbackRate": 1,           // Playback speed
-    "buffered": 180              // Buffered seconds
+    "time": 120.5, // Current playback position in seconds
+    "duration": 3600, // Total content duration in seconds
+    "volume": 0.8, // Volume level (0-1)
+    "playbackRate": 1, // Playback speed
+    "buffered": 180 // Buffered seconds
   }
 }
 ```
@@ -41,7 +43,7 @@ Send a player status update.
 ```json
 {
   "success": true,
-  "timestamp": 1625097600000    // The timestamp assigned to this status update
+  "timestamp": 1625097600000 // The timestamp assigned to this status update
 }
 ```
 
@@ -50,6 +52,7 @@ Send a player status update.
 Get status updates for a specific user in a specific room.
 
 **Query Parameters:**
+
 - `userId`: User identifier
 - `roomCode`: Room code
 
@@ -94,6 +97,7 @@ Get status updates for a specific user in a specific room.
 Get status updates for all users in a specific room.
 
 **Query Parameters:**
+
 - `roomCode`: Room code
 
 **Response:**
@@ -120,7 +124,7 @@ Get status updates for all users in a specific room.
           "isLoading": false,
           "hasPlayedOnce": true,
           "time": 120.5,
-          "duration": 3600, 
+          "duration": 3600,
           "volume": 0.8,
           "playbackRate": 1,
           "buffered": 180
@@ -140,4 +144,4 @@ Get status updates for all users in a specific room.
 
 - Status data is automatically cleaned up if it's older than 1 minute
 - The system keeps a maximum of 5 status updates per user per room
-- Timestamps are in milliseconds since epoch (Unix timestamp) 
+- Timestamps are in milliseconds since epoch (Unix timestamp)

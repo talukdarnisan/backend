@@ -8,7 +8,7 @@ export async function sendPlayerStatus({
   roomCode,
   isHost,
   content,
-  player
+  player,
 }: {
   userId: string;
   roomCode: string;
@@ -102,7 +102,6 @@ export async function getRoomStatuses(roomCode: string) {
  */
 export function ModifiedWebhookReporter() {
   // Example replacing the Discord webhook code
-  
   /*
   useEffect(() => {
     // Skip if watch party is not enabled or no status
@@ -193,4 +192,4 @@ export function ModifiedWebhookReporter() {
     isHost,
   ]);
   */
-} 
+}

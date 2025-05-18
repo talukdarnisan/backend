@@ -15,8 +15,14 @@ const progressMetaSchema = z.object({
 const progressItemSchema = z.object({
   meta: progressMetaSchema,
   tmdbId: z.string().transform(val => val || randomUUID()),
-  duration: z.number().min(0).transform(n => Math.round(n)),
-  watched: z.number().min(0).transform(n => Math.round(n)),
+  duration: z
+    .number()
+    .min(0)
+    .transform(n => Math.round(n)),
+  watched: z
+    .number()
+    .min(0)
+    .transform(n => Math.round(n)),
   seasonId: z.string().optional(),
   episodeId: z.string().optional(),
   seasonNumber: z.number().optional(),

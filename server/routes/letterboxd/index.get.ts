@@ -144,4 +144,6 @@ export default defineCachedEventHandler(async (event) => {
       statusMessage: 'Failed to fetch Letterboxd lists'
     });
   }
+},{
+    maxAge: process.env.NODE_ENV === 'production' ? 60 * 60 * 24 : 0
 });

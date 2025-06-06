@@ -88,15 +88,15 @@ export default defineCachedEventHandler(async (event) => {
           }
         }
 
-        const tmdbIds = [];
+        const tmdbMovies = [];
         
         for (const film of films) {
           try {
             const searchResult = await tmdb.search.movies({ query: film.name });
             
             if (searchResult.results && searchResult.results.length > 0) {
-              const tmdbId = searchResult.results[0].id;
-              tmdbIds.push(tmdbId);
+              const tmdbMovie = searchResult.results[0];
+              tmdbMovies.push(tmdbMovie);
             }
           } catch (error) {
             continue;
@@ -106,23 +106,17 @@ export default defineCachedEventHandler(async (event) => {
         allLists.push({
           listName: listName,
           listUrl: listUrl,
-          tmdbIds,
-          metadata: {
-            originalFilmCount: films.length,
-            foundTmdbIds: tmdbIds.length,
-            expectedItemCount: expectedItemCount,
-            workingSelector
-          }
+          tmdbMovies
         });
 
       } catch (error) {
         allLists.push({
           listName: listItem.title,
           listUrl: `https://letterboxd.com${listItem.href}`,
-          tmdbIds: [],
+          tmdbMovies: [],
           metadata: {
             originalFilmCount: 0,
-            foundTmdbIds: 0,
+            foundTmdbMovies: 0,
             expectedItemCount: null,
             error: 'Failed to process list'
           }
@@ -134,7 +128,7 @@ export default defineCachedEventHandler(async (event) => {
       lists: allLists,
       totalLists: allLists.length,
       summary: {
-        totalTmdbIds: allLists.reduce((sum, list) => sum + list.tmdbIds.length, 0),
+        totalTmdbMovies: allLists.reduce((sum, list) => sum + list.tmdbMovies.length, 0),
         totalExpectedItems: allLists.reduce((sum, list) => sum + (list.metadata.expectedItemCount || 0), 0)
       }
     };

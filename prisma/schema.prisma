@@ -66,6 +66,17 @@ model user_settings {
   proxy_urls                String[]
   trakt_key                 String?  @db.VarChar(255)
   febbox_key                String?  @db.VarChar(255)
+  enable_thumbnails         Boolean  @default(false)
+  enable_autoplay           Boolean  @default(true)
+  enable_skip_credits       Boolean  @default(true)
+  enable_discover           Boolean  @default(true)
+  enable_featured           Boolean  @default(false)
+  enable_details_modal      Boolean  @default(false)
+  enable_image_logos        Boolean  @default(true)
+  enable_carousel_view      Boolean  @default(false)
+  source_order              String[] @default([])
+  enable_source_order       Boolean  @default(false)
+  proxy_tmdb                Boolean  @default(false)
 }
 
 model users {

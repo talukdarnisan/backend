@@ -29,7 +29,9 @@ export default defineCachedEventHandler(async (event) => {
     for (let i = 0; i < listItems.length; i++) {
       const listItem = listItems[i];
       
-      if (!listItem.href) continue;
+      if (!listItem.href) {
+        continue;
+      }
 
       try {
         const listUrl = `https://letterboxd.com${listItem.href}`;
@@ -63,6 +65,7 @@ export default defineCachedEventHandler(async (event) => {
         
         for (const selector of possibleFilmSelectors) {
           const elements = list$(selector);
+          
           if (elements.length > 0) {
             workingSelector = selector;
             films = elements.map((i, el) => {
@@ -84,13 +87,17 @@ export default defineCachedEventHandler(async (event) => {
               };
             }).get().filter(film => film.name);
             
-            if (films.length > 0) break;
+            if (films.length > 0) {
+              break;
+            }
           }
         }
 
         const tmdbMovies = [];
         
-        for (const film of films) {
+        for (let j = 0; j < films.length; j++) {
+          const film = films[j];
+          
           try {
             const searchResult = await tmdb.search.movies({ query: film.name });
             
@@ -106,7 +113,13 @@ export default defineCachedEventHandler(async (event) => {
         allLists.push({
           listName: listName,
           listUrl: listUrl,
-          tmdbMovies
+          tmdbMovies,
+          metadata: {
+            originalFilmCount: films.length,
+            foundTmdbMovies: tmdbMovies.length,
+            expectedItemCount: expectedItemCount,
+            workingSelector
+          }
         });
 
       } catch (error) {
@@ -129,7 +142,7 @@ export default defineCachedEventHandler(async (event) => {
       totalLists: allLists.length,
       summary: {
         totalTmdbMovies: allLists.reduce((sum, list) => sum + list.tmdbMovies.length, 0),
-        totalExpectedItems: allLists.reduce((sum, list) => sum + (list.metadata.expectedItemCount || 0), 0)
+        totalExpectedItems: allLists.reduce((sum, list) => sum + (list.metadata?.expectedItemCount || 0), 0)
       }
     };
   } catch (error) {

@@ -281,22 +281,30 @@ export function recordProviderMetrics(items: any[], hostname: string, tool?: str
   // Record hostname once per request
   metrics.providerHostnames.inc({ hostname });
 
-  // Record status and watch metrics for each item
+  // Record status metrics for each item
   items.forEach(item => {
     // Record provider status
     metrics.providerStatuses.inc({
       provider_id: item.embedId ?? item.providerId,
       status: item.status,
     });
-
-    // Record watch metrics for each item
-    metrics.watchMetrics.inc({
-      tmdb_full_id: item.type + '-' + item.tmdbId,
-      provider_id: item.providerId,
-      title: item.title,
-      success: (item.status === 'success').toString(),
-    });
   });
+
+  // Reverse items to get the last one, and find the last successful item
+  const itemList = [...items];
+  itemList.reverse();
+  const lastSuccessfulItem = items.find(v => v.status === 'success');
+  const lastItem = itemList[0];
+
+  // Record watch metrics only for the last item
+  if (lastItem) {
+    metrics.watchMetrics.inc({
+      tmdb_full_id: lastItem.type + '-' + lastItem.tmdbId,
+      provider_id: lastSuccessfulItem?.providerId ?? lastItem.providerId,
+      title: lastItem.title,
+      success: (!!lastSuccessfulItem).toString(),
+    });
+  }
 
   // Record tool metrics
   if (tool) {

@@ -1,4 +1,4 @@
-import { Counter, register, collectDefaultMetrics, Histogram, Summary } from 'prom-client';
+import { Counter, register, collectDefaultMetrics, Histogram, Summary, Registry } from 'prom-client';
 import { prisma } from './prisma';
 import { scopedLogger } from '~/utils/logger';
 import fs from 'fs';
@@ -6,6 +6,24 @@ import path from 'path';
 
 const log = scopedLogger('metrics');
 const METRICS_FILE = '.metrics.json';
+const METRICS_DAILY_FILE = '.metrics_daily.json';
+const METRICS_WEEKLY_FILE = '.metrics_weekly.json';
+const METRICS_MONTHLY_FILE = '.metrics_monthly.json';
+
+// Global registries
+const registries = {
+  default: register, // All-time metrics (never cleared)
+  daily: new Registry(),
+  weekly: new Registry(),
+  monthly: new Registry()
+};
+
+// Expose the registries on global for tasks to access
+if (typeof global !== 'undefined') {
+  global.metrics_daily = registries.daily;
+  global.metrics_weekly = registries.weekly;
+  global.metrics_monthly = registries.monthly;
+}
 
 export type Metrics = {
   user: Counter<'namespace'>;
@@ -18,185 +36,230 @@ export type Metrics = {
   httpRequestSummary: Summary<'method' | 'route' | 'status_code'>;
 };
 
-let metrics: null | Metrics = null;
+// Store metrics for each time period
+const metricsStore: Record<string, Metrics | null> = {
+  default: null,
+  daily: null,
+  weekly: null,
+  monthly: null
+};
 
-export function getMetrics() {
-  if (!metrics) throw new Error('metrics not initialized');
-  return metrics;
+export function getMetrics(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default') {
+  if (!metricsStore[interval]) throw new Error(`metrics for ${interval} not initialized`);
+  return metricsStore[interval];
 }
 
-async function createMetrics(): Promise<Metrics> {
+export function getRegistry(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default') {
+  return registries[interval];
+}
+
+async function createMetrics(registry: Registry, interval: string): Promise<Metrics> {
   const newMetrics = {
     user: new Counter({
-      name: 'mw_user_count',
-      help: 'Number of users by namespace',
+      name: `mw_user_count_${interval !== 'default' ? interval : ''}`,
+      help: `Number of users by namespace (${interval})`,
       labelNames: ['namespace'],
+      registers: [registry]
     }),
     captchaSolves: new Counter({
-      name: 'mw_captcha_solves',
-      help: 'Number of captcha solves by success status',
+      name: `mw_captcha_solves_${interval !== 'default' ? interval : ''}`,
+      help: `Number of captcha solves by success status (${interval})`,
       labelNames: ['success'],
+      registers: [registry]
     }),
     providerHostnames: new Counter({
-      name: 'mw_provider_hostname_count',
-      help: 'Number of requests by provider hostname',
+      name: `mw_provider_hostname_count_${interval !== 'default' ? interval : ''}`,
+      help: `Number of requests by provider hostname (${interval})`,
       labelNames: ['hostname'],
+      registers: [registry]
     }),
     providerStatuses: new Counter({
-      name: 'mw_provider_status_count',
-      help: 'Number of provider requests by status',
+      name: `mw_provider_status_count_${interval !== 'default' ? interval : ''}`,
+      help: `Number of provider requests by status (${interval})`,
       labelNames: ['provider_id', 'status'],
+      registers: [registry]
     }),
     watchMetrics: new Counter({
-      name: 'mw_media_watch_count',
-      help: 'Number of media watch events',
+      name: `mw_media_watch_count_${interval !== 'default' ? interval : ''}`,
+      help: `Number of media watch events (${interval})`,
       labelNames: ['title', 'tmdb_full_id', 'provider_id', 'success'],
+      registers: [registry]
     }),
     toolMetrics: new Counter({
-      name: 'mw_provider_tool_count',
-      help: 'Number of provider tool usages',
+      name: `mw_provider_tool_count_${interval !== 'default' ? interval : ''}`,
+      help: `Number of provider tool usages (${interval})`,
       labelNames: ['tool'],
+      registers: [registry]
     }),
     httpRequestDuration: new Histogram({
-      name: 'http_request_duration_seconds',
-      help: 'request duration in seconds',
+      name: `http_request_duration_seconds_${interval !== 'default' ? interval : ''}`,
+      help: `request duration in seconds (${interval})`,
       labelNames: ['method', 'route', 'status_code'],
       buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+      registers: [registry]
     }),
     httpRequestSummary: new Summary({
-      name: 'http_request_summary_seconds',
-      help: 'request duration in seconds summary',
+      name: `http_request_summary_seconds_${interval !== 'default' ? interval : ''}`,
+      help: `request duration in seconds summary (${interval})`,
       labelNames: ['method', 'route', 'status_code'],
       percentiles: [0.01, 0.05, 0.5, 0.9, 0.95, 0.99, 0.999],
+      registers: [registry]
     }),
   };
-
-  // Register all metrics with the Prometheus registry
-  register.registerMetric(newMetrics.user);
-  register.registerMetric(newMetrics.captchaSolves);
-  register.registerMetric(newMetrics.providerHostnames);
-  register.registerMetric(newMetrics.providerStatuses);
-  register.registerMetric(newMetrics.watchMetrics);
-  register.registerMetric(newMetrics.toolMetrics);
-  register.registerMetric(newMetrics.httpRequestDuration);
-  register.registerMetric(newMetrics.httpRequestSummary);
 
   return newMetrics;
 }
 
-async function saveMetricsToFile() {
+async function saveMetricsToFile(interval: string = 'default') {
   try {
-    if (!metrics) return;
+    const registry = registries[interval];
+    if (!registry) return;
 
-    const metricsData = await register.getMetricsAsJSON();
+    const fileName = interval === 'default' 
+      ? METRICS_FILE 
+      : interval === 'daily' 
+        ? METRICS_DAILY_FILE 
+        : interval === 'weekly'
+          ? METRICS_WEEKLY_FILE
+          : METRICS_MONTHLY_FILE;
+
+    const metricsData = await registry.getMetricsAsJSON();
     const relevantMetrics = metricsData.filter(
-      metric => metric.name.startsWith('mw_') || metric.name === 'http_request_duration_seconds'
+      metric => metric.name.startsWith('mw_') || metric.name.startsWith('http_request')
     );
 
-    fs.writeFileSync(METRICS_FILE, JSON.stringify(relevantMetrics, null, 2));
+    fs.writeFileSync(fileName, JSON.stringify(relevantMetrics, null, 2));
 
-    log.info('Metrics saved to file', { evt: 'metrics_saved' });
+    log.info(`${interval} metrics saved to file`, { evt: 'metrics_saved', interval });
   } catch (error) {
-    log.error('Failed to save metrics', {
+    log.error(`Failed to save ${interval} metrics`, {
       evt: 'save_metrics_error',
+      interval,
       error: error instanceof Error ? error.message : String(error),
     });
   }
 }
 
-async function loadMetricsFromFile(): Promise<any[]> {
+async function loadMetricsFromFile(interval: string = 'default'): Promise<any[]> {
   try {
-    if (!fs.existsSync(METRICS_FILE)) {
-      log.info('No saved metrics found', { evt: 'no_saved_metrics' });
+    const fileName = interval === 'default' 
+      ? METRICS_FILE 
+      : interval === 'daily' 
+        ? METRICS_DAILY_FILE 
+        : interval === 'weekly'
+          ? METRICS_WEEKLY_FILE
+          : METRICS_MONTHLY_FILE;
+
+    if (!fs.existsSync(fileName)) {
+      log.info(`No saved ${interval} metrics found`, { evt: 'no_saved_metrics', interval });
       return [];
     }
 
-    const data = fs.readFileSync(METRICS_FILE, 'utf8');
+    const data = fs.readFileSync(fileName, 'utf8');
     const savedMetrics = JSON.parse(data);
-    log.info('Loaded saved metrics', {
+    log.info(`Loaded saved ${interval} metrics`, {
       evt: 'metrics_loaded',
+      interval,
       count: savedMetrics.length,
     });
     return savedMetrics;
   } catch (error) {
-    log.error('Failed to load metrics', {
+    log.error(`Failed to load ${interval} metrics`, {
       evt: 'load_metrics_error',
+      interval,
       error: error instanceof Error ? error.message : String(error),
     });
     return [];
   }
 }
 
-// Periodically save metrics
+// Periodically save all metrics
 const SAVE_INTERVAL = 60000; // Save every minute
-setInterval(saveMetricsToFile, SAVE_INTERVAL);
+setInterval(() => {
+  Object.keys(registries).forEach(interval => {
+    saveMetricsToFile(interval);
+  });
+}, SAVE_INTERVAL);
 
 // Save metrics on process exit
 process.on('SIGTERM', async () => {
-  log.info('Saving metrics before exit...', { evt: 'exit_save' });
-  await saveMetricsToFile();
+  log.info('Saving all metrics before exit...', { evt: 'exit_save' });
+  for (const interval of Object.keys(registries)) {
+    await saveMetricsToFile(interval);
+  }
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  log.info('Saving metrics before exit...', { evt: 'exit_save' });
-  await saveMetricsToFile();
+  log.info('Saving all metrics before exit...', { evt: 'exit_save' });
+  for (const interval of Object.keys(registries)) {
+    await saveMetricsToFile(interval);
+  }
   process.exit(0);
 });
 
-export async function setupMetrics() {
+export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default') {
   try {
-    log.info('Setting up metrics...', { evt: 'start' });
+    log.info(`Setting up ${interval} metrics...`, { evt: 'start', interval });
 
-    // Clear all existing metrics
-    log.info('Clearing metrics registry...', { evt: 'clear' });
-    register.clear();
+    const registry = registries[interval];
 
-    // Enable default Node.js metrics collection with appropriate settings
-    collectDefaultMetrics({
-      register,
-      prefix: '', // No prefix to match the example output
-      eventLoopMonitoringPrecision: 1, // Ensure eventloop metrics are collected
-      gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5], // Match the example buckets
-    });
+    // Clear registry if it already exists
+    registry.clear();
+
+    // Enable default Node.js metrics collection for default registry only
+    if (interval === 'default') {
+      collectDefaultMetrics({
+        register: registry,
+        prefix: '', // No prefix to match the example output
+        eventLoopMonitoringPrecision: 1, // Ensure eventloop metrics are collected
+        gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5], // Match the example buckets
+      });
+    }
 
     // Create new metrics instance
-    metrics = await createMetrics();
-    log.info('Created new metrics...', { evt: 'created' });
+    metricsStore[interval] = await createMetrics(registry, interval);
+    log.info(`Created new ${interval} metrics...`, { evt: 'created', interval });
 
     // Load saved metrics
-    const savedMetrics = await loadMetricsFromFile();
+    const savedMetrics = await loadMetricsFromFile(interval);
     if (savedMetrics.length > 0) {
-      log.info('Restoring saved metrics...', { evt: 'restore_metrics' });
+      log.info(`Restoring saved ${interval} metrics...`, { evt: 'restore_metrics', interval });
       savedMetrics.forEach(metric => {
         if (metric.values) {
           metric.values.forEach(value => {
-            switch (metric.name) {
+            const metrics = metricsStore[interval];
+            if (!metrics) return;
+
+            // Extract the base metric name without the interval suffix
+            const baseName = metric.name.replace(/_daily$|_weekly$|_monthly$/, '');
+            
+            switch (baseName) {
               case 'mw_user_count':
-                metrics?.user.inc(value.labels, value.value);
+                metrics.user.inc(value.labels, value.value);
                 break;
               case 'mw_captcha_solves':
-                metrics?.captchaSolves.inc(value.labels, value.value);
+                metrics.captchaSolves.inc(value.labels, value.value);
                 break;
               case 'mw_provider_hostname_count':
-                metrics?.providerHostnames.inc(value.labels, value.value);
+                metrics.providerHostnames.inc(value.labels, value.value);
                 break;
               case 'mw_provider_status_count':
-                metrics?.providerStatuses.inc(value.labels, value.value);
+                metrics.providerStatuses.inc(value.labels, value.value);
                 break;
               case 'mw_media_watch_count':
-                metrics?.watchMetrics.inc(value.labels, value.value);
+                metrics.watchMetrics.inc(value.labels, value.value);
                 break;
               case 'mw_provider_tool_count':
-                metrics?.toolMetrics.inc(value.labels, value.value);
+                metrics.toolMetrics.inc(value.labels, value.value);
                 break;
               case 'http_request_duration_seconds':
                 // For histograms, special handling for sum and count
                 if (
-                  value.metricName === 'http_request_duration_seconds_sum' ||
-                  value.metricName === 'http_request_duration_seconds_count'
+                  value.metricName === `http_request_duration_seconds_${interval !== 'default' ? interval + '_' : ''}sum` ||
+                  value.metricName === `http_request_duration_seconds_${interval !== 'default' ? interval + '_' : ''}count`
                 ) {
-                  metrics?.httpRequestDuration.observe(value.labels, value.value);
+                  metrics.httpRequestDuration.observe(value.labels, value.value);
                 }
                 break;
             }
@@ -206,112 +269,132 @@ export async function setupMetrics() {
     }
 
     // Initialize metrics with current data
-    log.info('Syncing up metrics...', { evt: 'sync' });
-    await updateMetrics();
-    log.info('Metrics initialized!', { evt: 'end' });
+    log.info(`Syncing up ${interval} metrics...`, { evt: 'sync', interval });
+    await updateMetrics(interval);
+    log.info(`${interval} metrics initialized!`, { evt: 'end', interval });
 
     // Save initial state
-    await saveMetricsToFile();
+    await saveMetricsToFile(interval);
   } catch (error) {
-    log.error('Failed to setup metrics', {
+    log.error(`Failed to setup ${interval} metrics`, {
       evt: 'setup_error',
+      interval,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
 
-async function updateMetrics() {
+async function updateMetrics(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default') {
   try {
-    log.info('Fetching users from database...', { evt: 'update_metrics_start' });
+    log.info(`Fetching users from database for ${interval} metrics...`, { evt: 'update_metrics_start', interval });
 
     const users = await prisma.users.groupBy({
       by: ['namespace'],
       _count: true,
     });
 
-    log.info('Found users', { evt: 'users_found', count: users.length });
+    log.info('Found users', { evt: 'users_found', count: users.length, interval });
 
-    metrics?.user.reset();
-    log.info('Reset user metrics counter', { evt: 'metrics_reset' });
+    const metrics = metricsStore[interval];
+    if (!metrics) return;
+
+    metrics.user.reset();
+    log.info(`Reset user metrics counter for ${interval}`, { evt: 'metrics_reset', interval });
 
     users.forEach(v => {
-      log.info('Incrementing user metric', {
+      log.info(`Incrementing user metric for ${interval}`, {
         evt: 'increment_metric',
+        interval,
         namespace: v.namespace,
         count: v._count,
       });
-      metrics?.user.inc({ namespace: v.namespace }, v._count);
+      metrics.user.inc({ namespace: v.namespace }, v._count);
     });
 
-    log.info('Successfully updated metrics', { evt: 'update_metrics_complete' });
+    log.info(`Successfully updated ${interval} metrics`, { evt: 'update_metrics_complete', interval });
   } catch (error) {
-    log.error('Failed to update metrics', {
+    log.error(`Failed to update ${interval} metrics`, {
       evt: 'update_metrics_error',
+      interval,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
 
-// Export function to record HTTP request duration
+// Export function to record HTTP request duration for all registries
 export function recordHttpRequest(
   method: string,
   route: string,
   statusCode: number,
   duration: number
 ) {
-  if (!metrics) return;
-
   const labels = {
     method,
     route,
     status_code: statusCode.toString(),
   };
 
-  // Record in both histogram and summary
-  metrics.httpRequestDuration.observe(labels, duration);
-  metrics.httpRequestSummary.observe(labels, duration);
+  // Record in all active registries
+  Object.entries(metricsStore).forEach(([interval, metrics]) => {
+    if (!metrics) return;
+    
+    // Record in both histogram and summary
+    metrics.httpRequestDuration.observe(labels, duration);
+    metrics.httpRequestSummary.observe(labels, duration);
+  });
 }
 
-// Functions to match previous backend API
+// Functions to match previous backend API - record in all registries
 export function recordProviderMetrics(items: any[], hostname: string, tool?: string) {
-  if (!metrics) return;
+  Object.values(metricsStore).forEach(metrics => {
+    if (!metrics) return;
 
-  // Record hostname once per request
-  metrics.providerHostnames.inc({ hostname });
+    // Record hostname once per request
+    metrics.providerHostnames.inc({ hostname });
 
-  // Record status metrics for each item
-  items.forEach(item => {
-    // Record provider status
-    metrics.providerStatuses.inc({
-      provider_id: item.embedId ?? item.providerId,
-      status: item.status,
+    // Record status metrics for each item
+    items.forEach(item => {
+      // Record provider status
+      metrics.providerStatuses.inc({
+        provider_id: item.embedId ?? item.providerId,
+        status: item.status,
+      });
     });
+
+    // Reverse items to get the last one, and find the last successful item
+    const itemList = [...items];
+    itemList.reverse();
+    const lastSuccessfulItem = items.find(v => v.status === 'success');
+    const lastItem = itemList[0];
+
+    // Record watch metrics only for the last item
+    if (lastItem) {
+      metrics.watchMetrics.inc({
+        tmdb_full_id: lastItem.type + '-' + lastItem.tmdbId,
+        provider_id: lastSuccessfulItem?.providerId ?? lastItem.providerId,
+        title: lastItem.title,
+        success: (!!lastSuccessfulItem).toString(),
+      });
+    }
+
+    // Record tool metrics
+    if (tool) {
+      metrics.toolMetrics.inc({ tool });
+    }
   });
-
-  // Reverse items to get the last one, and find the last successful item
-  const itemList = [...items];
-  itemList.reverse();
-  const lastSuccessfulItem = items.find(v => v.status === 'success');
-  const lastItem = itemList[0];
-
-  // Record watch metrics only for the last item
-  if (lastItem) {
-    metrics.watchMetrics.inc({
-      tmdb_full_id: lastItem.type + '-' + lastItem.tmdbId,
-      provider_id: lastSuccessfulItem?.providerId ?? lastItem.providerId,
-      title: lastItem.title,
-      success: (!!lastSuccessfulItem).toString(),
-    });
-  }
-
-  // Record tool metrics
-  if (tool) {
-    metrics.toolMetrics.inc({ tool });
-  }
 }
 
 export function recordCaptchaMetrics(success: boolean) {
-  metrics?.captchaSolves.inc({ success: success.toString() });
+  Object.values(metricsStore).forEach(metrics => {
+    metrics?.captchaSolves.inc({ success: success.toString() });
+  });
+}
+
+// Initialize all metrics registries on startup
+export async function initializeAllMetrics() {
+  for (const interval of Object.keys(registries) as Array<'default' | 'daily' | 'weekly' | 'monthly'>) {
+    await setupMetrics(interval);
+  }
 }

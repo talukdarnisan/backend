@@ -1,5 +1,5 @@
 import { register } from 'prom-client';
-import { setupMetrics } from '../../utils/metrics';
+import { setupMetrics, initializeAllMetrics } from '../../utils/metrics';
 import { scopedLogger } from '../../utils/logger';
 
 const log = scopedLogger('metrics-endpoint');
@@ -9,7 +9,7 @@ let isInitialized = false;
 async function ensureMetricsInitialized() {
   if (!isInitialized) {
     log.info('Initializing metrics from endpoint...', { evt: 'init_start' });
-    await setupMetrics();
+    await initializeAllMetrics();
     isInitialized = true;
     log.info('Metrics initialized from endpoint', { evt: 'init_complete' });
   }
@@ -18,6 +18,7 @@ async function ensureMetricsInitialized() {
 export default defineEventHandler(async event => {
   try {
     await ensureMetricsInitialized();
+    // Use the default registry (all-time metrics)
     const metrics = await register.metrics();
     event.node.res.setHeader('Content-Type', register.contentType);
     return metrics;

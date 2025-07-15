@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A01I0NP5)
+
 # BackendV2
 
 [![Donate](https://img.shields.io/badge/Donate-GitHub%20Sponsors-PURPLE)](https://github.com/sponsors/FifthWit)

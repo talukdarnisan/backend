@@ -15,12 +15,7 @@ export default defineTask({
     
     try {
       // Clear and reinitialize daily metrics
-      if (global.metrics_daily) {
-        global.metrics_daily.clear();
-        await setupMetrics('daily');
-      } else {
-        await setupMetrics('daily');
-      }
+      await setupMetrics('daily', true);
       
       const executionTime = Date.now() - startTime;
       logger.info(`Daily metrics cleared in ${executionTime}ms`);

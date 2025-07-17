@@ -54,52 +54,53 @@ export function getRegistry(interval: 'default' | 'daily' | 'weekly' | 'monthly'
 }
 
 async function createMetrics(registry: Registry, interval: string): Promise<Metrics> {
+  const suffix = interval !== 'default' ? `_${interval}` : '';
   const newMetrics = {
     user: new Counter({
-      name: `mw_user_count_${interval !== 'default' ? interval : ''}`,
+      name: `mw_user_count${suffix}`,
       help: `Number of users by namespace (${interval})`,
       labelNames: ['namespace'],
       registers: [registry]
     }),
     captchaSolves: new Counter({
-      name: `mw_captcha_solves_${interval !== 'default' ? interval : ''}`,
+      name: `mw_captcha_solves${suffix}`,
       help: `Number of captcha solves by success status (${interval})`,
       labelNames: ['success'],
       registers: [registry]
     }),
     providerHostnames: new Counter({
-      name: `mw_provider_hostname_count_${interval !== 'default' ? interval : ''}`,
+      name: `mw_provider_hostname_count${suffix}`,
       help: `Number of requests by provider hostname (${interval})`,
       labelNames: ['hostname'],
       registers: [registry]
     }),
     providerStatuses: new Counter({
-      name: `mw_provider_status_count_${interval !== 'default' ? interval : ''}`,
+      name: `mw_provider_status_count${suffix}`,
       help: `Number of provider requests by status (${interval})`,
       labelNames: ['provider_id', 'status'],
       registers: [registry]
     }),
     watchMetrics: new Counter({
-      name: `mw_media_watch_count_${interval !== 'default' ? interval : ''}`,
+      name: `mw_media_watch_count${suffix}`,
       help: `Number of media watch events (${interval})`,
       labelNames: ['title', 'tmdb_full_id', 'provider_id', 'success'],
       registers: [registry]
     }),
     toolMetrics: new Counter({
-      name: `mw_provider_tool_count_${interval !== 'default' ? interval : ''}`,
+      name: `mw_provider_tool_count${suffix}`,
       help: `Number of provider tool usages (${interval})`,
       labelNames: ['tool'],
       registers: [registry]
     }),
     httpRequestDuration: new Histogram({
-      name: `http_request_duration_seconds_${interval !== 'default' ? interval : ''}`,
+      name: `http_request_duration_seconds${suffix}`,
       help: `request duration in seconds (${interval})`,
       labelNames: ['method', 'route', 'status_code'],
       buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
       registers: [registry]
     }),
     httpRequestSummary: new Summary({
-      name: `http_request_summary_seconds_${interval !== 'default' ? interval : ''}`,
+      name: `http_request_summary_seconds${suffix}`,
       help: `request duration in seconds summary (${interval})`,
       labelNames: ['method', 'route', 'status_code'],
       percentiles: [0.01, 0.05, 0.5, 0.9, 0.95, 0.99, 0.999],
@@ -198,29 +199,40 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
-export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default') {
+let defaultMetricsRegistered = false;
+const metricsRegistered: Record<string, boolean> = {
+  default: false,
+  daily: false,
+  weekly: false,
+  monthly: false,
+};
+
+export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default', clear: boolean = false) {
   try {
     log.info(`Setting up ${interval} metrics...`, { evt: 'start', interval });
 
     const registry = registries[interval];
-
-    // Clear registry if it already exists
-    registry.clear();
-
-    // Enable default Node.js metrics collection for default registry only
-    if (interval === 'default') {
-      collectDefaultMetrics({
-        register: registry,
-        prefix: '', // No prefix to match the example output
-        eventLoopMonitoringPrecision: 1, // Ensure eventloop metrics are collected
-        gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5], // Match the example buckets
-      });
+    // Only clear registry if explicitly requested (e.g., by scheduled task)
+    if (clear) {
+      registry.clear();
+      metricsRegistered[interval] = false; // allow re-registration after clear
+      if (interval === 'default') defaultMetricsRegistered = false;
     }
-
-    // Create new metrics instance
-    metricsStore[interval] = await createMetrics(registry, interval);
-    log.info(`Created new ${interval} metrics...`, { evt: 'created', interval });
-
+    // Only register metrics once per registry per process
+    if (!metricsRegistered[interval]) {
+      if (interval === 'default' && !defaultMetricsRegistered) {
+        collectDefaultMetrics({
+          register: registry,
+          prefix: '', // No prefix to match the example output
+          eventLoopMonitoringPrecision: 1, // Ensure eventloop metrics are collected
+          gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5], // Match the example buckets
+        });
+        defaultMetricsRegistered = true;
+      }
+      metricsStore[interval] = await createMetrics(registry, interval);
+      metricsRegistered[interval] = true;
+      log.info(`Created new ${interval} metrics...`, { evt: 'created', interval });
+    }
     // Load saved metrics
     const savedMetrics = await loadMetricsFromFile(interval);
     if (savedMetrics.length > 0) {
@@ -256,8 +268,8 @@ export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'm
               case 'http_request_duration_seconds':
                 // For histograms, special handling for sum and count
                 if (
-                  value.metricName === `http_request_duration_seconds_${interval !== 'default' ? interval + '_' : ''}sum` ||
-                  value.metricName === `http_request_duration_seconds_${interval !== 'default' ? interval + '_' : ''}count`
+                  value.metricName === `http_request_duration_seconds${interval !== 'default' ? `_${interval}` : ''}sum` ||
+                  value.metricName === `http_request_duration_seconds${interval !== 'default' ? `_${interval}` : ''}count`
                 ) {
                   metrics.httpRequestDuration.observe(value.labels, value.value);
                 }

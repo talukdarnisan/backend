@@ -15,12 +15,7 @@ export default defineTask({
     
     try {
       // Clear and reinitialize monthly metrics
-      if (global.metrics_monthly) {
-        global.metrics_monthly.clear();
-        await setupMetrics('monthly');
-      } else {
-        await setupMetrics('monthly');
-      }
+      await setupMetrics('monthly', true);
       
       const executionTime = Date.now() - startTime;
       logger.info(`Monthly metrics cleared in ${executionTime}ms`);

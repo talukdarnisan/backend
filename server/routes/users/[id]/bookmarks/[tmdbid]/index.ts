@@ -9,6 +9,7 @@ const bookmarkMetaSchema = z.object({
   year: z.number(),
   poster: z.string().optional(),
   type: z.enum(['movie', 'show']),
+  group: z.string().optional(),
 });
 
 // Support both formats: direct fields or nested under meta

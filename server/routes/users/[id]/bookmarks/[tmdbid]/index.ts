@@ -9,7 +9,7 @@ const bookmarkMetaSchema = z.object({
   year: z.number(),
   poster: z.string().optional(),
   type: z.enum(['movie', 'show']),
-  group: z.string().optional(),
+  group: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 // Support both formats: direct fields or nested under meta
@@ -44,6 +44,13 @@ export default defineEventHandler(async event => {
 
       // Validate the meta data separately
       const validatedMeta = bookmarkMetaSchema.parse(metaData);
+
+      // Normalize group to always be an array if present
+      if (validatedMeta.group) {
+        validatedMeta.group = Array.isArray(validatedMeta.group)
+          ? validatedMeta.group
+          : [validatedMeta.group];
+      }
 
       const bookmark = await prisma.bookmarks.create({
         data: {

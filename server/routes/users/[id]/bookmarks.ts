@@ -11,6 +11,7 @@ const bookmarkMetaSchema = z.object({
 const bookmarkDataSchema = z.object({
   tmdbId: z.string(),
   meta: bookmarkMetaSchema,
+  group: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 export default defineEventHandler(async event => {
@@ -34,6 +35,7 @@ export default defineEventHandler(async event => {
     return bookmarks.map(bookmark => ({
       tmdbId: bookmark.tmdb_id,
       meta: bookmark.meta,
+      group: bookmark.group,
       updatedAt: bookmark.updated_at,
     }));
   }
@@ -46,6 +48,11 @@ export default defineEventHandler(async event => {
     const results = [];
 
     for (const item of validatedBody) {
+      // Normalize group to always be an array
+      const normalizedGroup = item.group 
+        ? (Array.isArray(item.group) ? item.group : [item.group])
+        : [];
+
       const bookmark = await prisma.bookmarks.upsert({
         where: {
           tmdb_id_user_id: {
@@ -55,12 +62,14 @@ export default defineEventHandler(async event => {
         },
         update: {
           meta: item.meta,
+          group: normalizedGroup,
           updated_at: now,
         },
         create: {
           tmdb_id: item.tmdbId,
           user_id: userId,
           meta: item.meta,
+          group: normalizedGroup,
           updated_at: now,
         },
       });
@@ -68,6 +77,7 @@ export default defineEventHandler(async event => {
       results.push({
         tmdbId: bookmark.tmdb_id,
         meta: bookmark.meta,
+        group: bookmark.group,
         updatedAt: bookmark.updated_at,
       });
     }
@@ -110,6 +120,7 @@ export default defineEventHandler(async event => {
     return {
       tmdbId: bookmark.tmdb_id,
       meta: bookmark.meta,
+      group: bookmark.group,
       updatedAt: bookmark.updated_at,
     };
   }

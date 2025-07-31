@@ -9,13 +9,13 @@ const bookmarkMetaSchema = z.object({
   year: z.number(),
   poster: z.string().optional(),
   type: z.enum(['movie', 'show']),
-  group: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 // Support both formats: direct fields or nested under meta
 const bookmarkRequestSchema = z.object({
   meta: bookmarkMetaSchema.optional(),
   tmdbId: z.string().optional(),
+  group: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
 export default defineEventHandler(async event => {
@@ -45,18 +45,31 @@ export default defineEventHandler(async event => {
       // Validate the meta data separately
       const validatedMeta = bookmarkMetaSchema.parse(metaData);
 
-      // Normalize group to always be an array if present
-      if (validatedMeta.group) {
-        validatedMeta.group = Array.isArray(validatedMeta.group)
-          ? validatedMeta.group
-          : [validatedMeta.group];
-      }
+      // Extract group from the validated request
+      const groupFromBody = validatedRequest.group;
 
-      const bookmark = await prisma.bookmarks.create({
-        data: {
+      // Normalize group to always be an array if present
+      const normalizedGroup = groupFromBody 
+        ? (Array.isArray(groupFromBody) ? groupFromBody : [groupFromBody])
+        : [];
+
+      const bookmark = await prisma.bookmarks.upsert({
+        where: {
+          tmdb_id_user_id: {
+            tmdb_id: tmdbId,
+            user_id: session.user,
+          },
+        },
+        update: {
+          meta: validatedMeta,
+          group: normalizedGroup,
+          updated_at: new Date(),
+        },
+        create: {
           user_id: session.user,
           tmdb_id: tmdbId,
           meta: validatedMeta,
+          group: normalizedGroup,
           updated_at: new Date(),
         },
       });
@@ -66,6 +79,7 @@ export default defineEventHandler(async event => {
       return {
         tmdbId: bookmark.tmdb_id,
         meta: bookmark.meta,
+        group: bookmark.group,
         updatedAt: bookmark.updated_at,
       };
     } catch (error) {

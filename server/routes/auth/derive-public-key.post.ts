@@ -44,3 +44,6 @@ export default defineEventHandler(async (event) => {
 });
 
 
+// curl -X POST http://localhost:3000/auth/derive-public-key \
+//   -H 'Content-Type: application/json' \
+//   -d '{"mnemonic":"right inject hazard canoe carry unfair cram physical chief nice real tribute"}'

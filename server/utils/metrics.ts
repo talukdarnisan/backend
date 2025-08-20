@@ -280,9 +280,17 @@ export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'm
       });
     }
 
-    // Initialize metrics with current data
+    // Initialize metrics with current data (best-effort; don't fail if DB is unavailable)
     log.info(`Syncing up ${interval} metrics...`, { evt: 'sync', interval });
-    await updateMetrics(interval);
+    try {
+      await updateMetrics(interval);
+    } catch (err) {
+      log.warn(`Skipping ${interval} DB-backed metric sync due to error`, {
+        evt: 'sync_skipped',
+        interval,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
     log.info(`${interval} metrics initialized!`, { evt: 'end', interval });
 
     // Save initial state
@@ -293,7 +301,8 @@ export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'm
       interval,
       error: error instanceof Error ? error.message : String(error),
     });
-    throw error;
+    // Do not rethrow so callers can keep running (e.g., allow HTTP metrics recording without DB)
+    return;
   }
 }
 
@@ -407,6 +416,15 @@ export function recordCaptchaMetrics(success: boolean) {
 // Initialize all metrics registries on startup
 export async function initializeAllMetrics() {
   for (const interval of Object.keys(registries) as Array<'default' | 'daily' | 'weekly' | 'monthly'>) {
-    await setupMetrics(interval);
+    try {
+      await setupMetrics(interval);
+    } catch (error) {
+      log.error(`initializeAllMetrics: failed to setup ${interval}`, {
+        evt: 'init_interval_error',
+        interval,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Continue initializing other intervals
+    }
   }
 }

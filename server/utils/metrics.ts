@@ -116,13 +116,7 @@ async function saveMetricsToFile(interval: string = 'default') {
     const registry = registries[interval];
     if (!registry) return;
 
-    const fileName = interval === 'default' 
-      ? METRICS_FILE 
-      : interval === 'daily' 
-        ? METRICS_DAILY_FILE 
-        : interval === 'weekly'
-          ? METRICS_WEEKLY_FILE
-          : METRICS_MONTHLY_FILE;
+    const fileName = getMetricsFileName(interval);
 
     const metricsData = await registry.getMetricsAsJSON();
     const relevantMetrics = metricsData.filter(
@@ -143,13 +137,7 @@ async function saveMetricsToFile(interval: string = 'default') {
 
 async function loadMetricsFromFile(interval: string = 'default'): Promise<any[]> {
   try {
-    const fileName = interval === 'default' 
-      ? METRICS_FILE 
-      : interval === 'daily' 
-        ? METRICS_DAILY_FILE 
-        : interval === 'weekly'
-          ? METRICS_WEEKLY_FILE
-          : METRICS_MONTHLY_FILE;
+    const fileName = getMetricsFileName(interval);
 
     if (!fs.existsSync(fileName)) {
       log.info(`No saved ${interval} metrics found`, { evt: 'no_saved_metrics', interval });
@@ -213,10 +201,26 @@ export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'm
 
     const registry = registries[interval];
     // Only clear registry if explicitly requested (e.g., by scheduled task)
+    let skipRestore = false;
     if (clear) {
       registry.clear();
       metricsRegistered[interval] = false; // allow re-registration after clear
       if (interval === 'default') defaultMetricsRegistered = false;
+      // Remove persisted snapshot so we truly start fresh for this interval
+      try {
+        const fileName = getMetricsFileName(interval);
+        if (fs.existsSync(fileName)) {
+          fs.unlinkSync(fileName);
+          log.info(`Deleted persisted ${interval} metrics file`, { evt: 'deleted_metrics_file', interval });
+        }
+      } catch (err) {
+        log.warn(`Failed to delete ${interval} metrics file`, {
+          evt: 'delete_metrics_file_error',
+          interval,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+      skipRestore = true;
     }
     // Only register metrics once per registry per process
     if (!metricsRegistered[interval]) {
@@ -234,50 +238,52 @@ export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'm
       log.info(`Created new ${interval} metrics...`, { evt: 'created', interval });
     }
     // Load saved metrics
-    const savedMetrics = await loadMetricsFromFile(interval);
-    if (savedMetrics.length > 0) {
-      log.info(`Restoring saved ${interval} metrics...`, { evt: 'restore_metrics', interval });
-      savedMetrics.forEach(metric => {
-        if (metric.values) {
-          metric.values.forEach(value => {
-            const metrics = metricsStore[interval];
-            if (!metrics) return;
+    if (!skipRestore) {
+      const savedMetrics = await loadMetricsFromFile(interval);
+      if (savedMetrics.length > 0) {
+        log.info(`Restoring saved ${interval} metrics...`, { evt: 'restore_metrics', interval });
+        savedMetrics.forEach(metric => {
+          if (metric.values) {
+            metric.values.forEach(value => {
+              const metrics = metricsStore[interval];
+              if (!metrics) return;
 
-            // Extract the base metric name without the interval suffix
-            const baseName = metric.name.replace(/_daily$|_weekly$|_monthly$/, '');
-            
-            switch (baseName) {
-              case 'mw_user_count':
-                metrics.user.inc(value.labels, value.value);
-                break;
-              case 'mw_captcha_solves':
-                metrics.captchaSolves.inc(value.labels, value.value);
-                break;
-              case 'mw_provider_hostname_count':
-                metrics.providerHostnames.inc(value.labels, value.value);
-                break;
-              case 'mw_provider_status_count':
-                metrics.providerStatuses.inc(value.labels, value.value);
-                break;
-              case 'mw_media_watch_count':
-                metrics.watchMetrics.inc(value.labels, value.value);
-                break;
-              case 'mw_provider_tool_count':
-                metrics.toolMetrics.inc(value.labels, value.value);
-                break;
-              case 'http_request_duration_seconds':
-                // For histograms, special handling for sum and count
-                if (
-                  value.metricName === `http_request_duration_seconds${interval !== 'default' ? `_${interval}` : ''}sum` ||
-                  value.metricName === `http_request_duration_seconds${interval !== 'default' ? `_${interval}` : ''}count`
-                ) {
-                  metrics.httpRequestDuration.observe(value.labels, value.value);
-                }
-                break;
-            }
-          });
-        }
-      });
+              // Extract the base metric name without the interval suffix
+              const baseName = metric.name.replace(/_daily$|_weekly$|_monthly$/, '');
+              
+              switch (baseName) {
+                case 'mw_user_count':
+                  metrics.user.inc(value.labels, value.value);
+                  break;
+                case 'mw_captcha_solves':
+                  metrics.captchaSolves.inc(value.labels, value.value);
+                  break;
+                case 'mw_provider_hostname_count':
+                  metrics.providerHostnames.inc(value.labels, value.value);
+                  break;
+                case 'mw_provider_status_count':
+                  metrics.providerStatuses.inc(value.labels, value.value);
+                  break;
+                case 'mw_media_watch_count':
+                  metrics.watchMetrics.inc(value.labels, value.value);
+                  break;
+                case 'mw_provider_tool_count':
+                  metrics.toolMetrics.inc(value.labels, value.value);
+                  break;
+                case 'http_request_duration_seconds':
+                  // For histograms, special handling for sum and count
+                  if (
+                    value.metricName === `http_request_duration_seconds${interval !== 'default' ? `_${interval}` : ''}sum` ||
+                    value.metricName === `http_request_duration_seconds${interval !== 'default' ? `_${interval}` : ''}count`
+                  ) {
+                    metrics.httpRequestDuration.observe(value.labels, value.value);
+                  }
+                  break;
+              }
+            });
+          }
+        });
+      }
     }
 
     // Initialize metrics with current data (best-effort; don't fail if DB is unavailable)
@@ -308,6 +314,10 @@ export async function setupMetrics(interval: 'default' | 'daily' | 'weekly' | 'm
 
 async function updateMetrics(interval: 'default' | 'daily' | 'weekly' | 'monthly' = 'default') {
   try {
+    // Only the default (all-time) registry should be hydrated from the database.
+    if (interval !== 'default') {
+      return;
+    }
     log.info(`Fetching users from database for ${interval} metrics...`, { evt: 'update_metrics_start', interval });
 
     const users = await prisma.users.groupBy({

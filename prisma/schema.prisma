@@ -9,11 +9,12 @@ datasource db {
 }
 
 model bookmarks {
-  tmdb_id    String   @db.VarChar(255)
-  user_id    String   @db.VarChar(255)
-  meta       Json
-  updated_at DateTime @db.Timestamptz(0)
-  group      String[]
+  tmdb_id          String   @db.VarChar(255)
+  user_id          String   @db.VarChar(255)
+  meta             Json
+  updated_at       DateTime @db.Timestamptz(0)
+  group            String[]
+  favorite_episodes String[] @default([])
 
   @@id([tmdb_id, user_id])
   @@unique([tmdb_id, user_id], map: "bookmarks_tmdb_id_user_id_unique")

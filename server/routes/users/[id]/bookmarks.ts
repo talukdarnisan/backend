@@ -1,6 +1,15 @@
 import { useAuth } from '~/utils/auth';
 import { z } from 'zod';
 
+interface BookmarkWithFavorites {
+  tmdb_id: string;
+  user_id: string;
+  meta: any;
+  group: string[];
+  favorite_episodes: string[];
+  updated_at: Date;
+}
+
 const bookmarkMetaSchema = z.object({
   title: z.string(),
   year: z.number().optional(),
@@ -12,6 +21,7 @@ const bookmarkDataSchema = z.object({
   tmdbId: z.string(),
   meta: bookmarkMetaSchema,
   group: z.union([z.string(), z.array(z.string())]).optional(),
+  favoriteEpisodes: z.array(z.string()).optional(),
 });
 
 export default defineEventHandler(async event => {
@@ -32,10 +42,11 @@ export default defineEventHandler(async event => {
       where: { user_id: userId },
     });
 
-    return bookmarks.map(bookmark => ({
+    return bookmarks.map((bookmark: BookmarkWithFavorites) => ({
       tmdbId: bookmark.tmdb_id,
       meta: bookmark.meta,
       group: bookmark.group,
+      favoriteEpisodes: bookmark.favorite_episodes,
       updatedAt: bookmark.updated_at,
     }));
   }
@@ -53,6 +64,9 @@ export default defineEventHandler(async event => {
         ? (Array.isArray(item.group) ? item.group : [item.group])
         : [];
 
+      // Normalize favoriteEpisodes to always be an array
+      const normalizedFavoriteEpisodes = item.favoriteEpisodes || [];
+
       const bookmark = await prisma.bookmarks.upsert({
         where: {
           tmdb_id_user_id: {
@@ -63,21 +77,24 @@ export default defineEventHandler(async event => {
         update: {
           meta: item.meta,
           group: normalizedGroup,
+          favorite_episodes: normalizedFavoriteEpisodes,
           updated_at: now,
-        },
+        } as any,
         create: {
           tmdb_id: item.tmdbId,
           user_id: userId,
           meta: item.meta,
           group: normalizedGroup,
+          favorite_episodes: normalizedFavoriteEpisodes,
           updated_at: now,
-        },
-      });
+        } as any,
+      }) as BookmarkWithFavorites;
 
       results.push({
         tmdbId: bookmark.tmdb_id,
         meta: bookmark.meta,
         group: bookmark.group,
+        favoriteEpisodes: bookmark.favorite_episodes,
         updatedAt: bookmark.updated_at,
       });
     }
@@ -85,60 +102,6 @@ export default defineEventHandler(async event => {
     return results;
   }
 
-  const segments = event.path.split('/');
-  const tmdbId = segments[segments.length - 1];
-
-  if (method === 'POST') {
-    const body = await readBody(event);
-    const validatedBody = bookmarkDataSchema.parse(body);
-
-    const existing = await prisma.bookmarks.findUnique({
-      where: {
-        tmdb_id_user_id: {
-          tmdb_id: tmdbId,
-          user_id: userId,
-        },
-      },
-    });
-
-    if (existing) {
-      throw createError({
-        statusCode: 400,
-        message: 'Already bookmarked',
-      });
-    }
-
-    const bookmark = await prisma.bookmarks.create({
-      data: {
-        tmdb_id: tmdbId,
-        user_id: userId,
-        meta: validatedBody.meta,
-        updated_at: new Date(),
-      },
-    });
-
-    return {
-      tmdbId: bookmark.tmdb_id,
-      meta: bookmark.meta,
-      group: bookmark.group,
-      updatedAt: bookmark.updated_at,
-    };
-  }
-
-  if (method === 'DELETE') {
-    try {
-      await prisma.bookmarks.delete({
-        where: {
-          tmdb_id_user_id: {
-            tmdb_id: tmdbId,
-            user_id: userId,
-          },
-        },
-      });
-    } catch (error) {}
-
-    return { tmdbId };
-  }
 
   throw createError({
     statusCode: 405,

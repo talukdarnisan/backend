@@ -2,6 +2,15 @@ import { useAuth } from '~/utils/auth';
 import { z } from 'zod';
 import { scopedLogger } from '~/utils/logger';
 
+interface BookmarkWithFavorites {
+  tmdb_id: string;
+  user_id: string;
+  meta: any;
+  group: string[];
+  favorite_episodes: string[];
+  updated_at: Date;
+}
+
 const log = scopedLogger('user-bookmarks');
 
 const bookmarkMetaSchema = z.object({
@@ -16,6 +25,7 @@ const bookmarkRequestSchema = z.object({
   meta: bookmarkMetaSchema.optional(),
   tmdbId: z.string().optional(),
   group: z.union([z.string(), z.array(z.string())]).optional(),
+  favoriteEpisodes: z.array(z.string()).optional(),
 });
 
 export default defineEventHandler(async event => {
@@ -53,6 +63,9 @@ export default defineEventHandler(async event => {
         ? (Array.isArray(groupFromBody) ? groupFromBody : [groupFromBody])
         : [];
 
+      // Normalize favoriteEpisodes to always be an array
+      const normalizedFavoriteEpisodes = validatedRequest.favoriteEpisodes || [];
+
       const bookmark = await prisma.bookmarks.upsert({
         where: {
           tmdb_id_user_id: {
@@ -63,16 +76,18 @@ export default defineEventHandler(async event => {
         update: {
           meta: validatedMeta,
           group: normalizedGroup,
+          favorite_episodes: normalizedFavoriteEpisodes,
           updated_at: new Date(),
-        },
+        } as any,
         create: {
           user_id: session.user,
           tmdb_id: tmdbId,
           meta: validatedMeta,
           group: normalizedGroup,
+          favorite_episodes: normalizedFavoriteEpisodes,
           updated_at: new Date(),
-        },
-      });
+        } as any,
+      }) as BookmarkWithFavorites;
 
       log.info('Bookmark created successfully', { userId, tmdbId });
 
@@ -80,6 +95,7 @@ export default defineEventHandler(async event => {
         tmdbId: bookmark.tmdb_id,
         meta: bookmark.meta,
         group: bookmark.group,
+        favoriteEpisodes: bookmark.favorite_episodes,
         updatedAt: bookmark.updated_at,
       };
     } catch (error) {

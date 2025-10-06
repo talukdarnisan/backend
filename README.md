@@ -23,7 +23,7 @@ nixpacks build ./path/to/app --name my-app # my-app will be the container name a
 ```sh
 docker run my-app
 ```
-[!TIP]
+> [!TIP]
 If you use a tool like Dokploy or Coolify, NixPacks support is out of the box
 ### Railpack
 Railpack is the successor to NixPacks, to run the backend via Railpack:
@@ -81,7 +81,8 @@ cp .env.example .env
 
 2. Fill in the values in the .env file
 
-[!NOTE] for postgres you may want to use a service like [Neon](https://neon.tech) or host your own with docker, to do that just look it up
+> [!NOTE]
+> for postgres you may want to use a service like [Neon](https://neon.tech) or host your own with docker, to do that just look it up
 
 ## Contributing
 We love contributors, it helps the community so much, if you are interested in contributing here are some steps:

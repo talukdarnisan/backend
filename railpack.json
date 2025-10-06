@@ -43,6 +43,7 @@
         "step": "build"
       }
     ],
+    "startCommand": "node .output/server/index.mjs",
     "variables": {
       "CI": "true",
       "NODE_ENV": "production",
@@ -51,8 +52,8 @@
       "NPM_CONFIG_UPDATE_NOTIFIER": "false"
     }
   },
-  "steps": [
-    {
+  "steps": {
+    "packages:mise": {
       "assets": {
         "mise.toml": "[tools]\n  [tools.node]\n    version = \"22.20.0\"\n"
       },
@@ -75,7 +76,6 @@
           "image": "ghcr.io/railwayapp/railpack-builder:latest"
         }
       ],
-      "name": "packages:mise",
       "variables": {
         "MISE_CACHE_DIR": "/mise/cache",
         "MISE_CONFIG_DIR": "/mise",
@@ -85,7 +85,7 @@
         "MISE_SHIMS_DIR": "/mise/shims"
       }
     },
-    {
+    "install": {
       "caches": [
         "npm-install"
       ],
@@ -111,7 +111,6 @@
           "local": true
         }
       ],
-      "name": "install",
       "variables": {
         "CI": "true",
         "NODE_ENV": "production",
@@ -120,7 +119,7 @@
         "NPM_CONFIG_UPDATE_NOTIFIER": "false"
       }
     },
-    {
+    "build": {
       "caches": [
         "node-modules"
       ],
@@ -140,10 +139,9 @@
           "local": true
         }
       ],
-      "name": "build",
       "secrets": [
         "*"
       ]
     }
-  ]
+  }
 }
